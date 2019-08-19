@@ -19,7 +19,9 @@ test_transformer = transforms.Compose([
 def get_transform(params=None, grayscale=False, method=Image.BICUBIC, convert=True):
     transform_list = []
     if grayscale:
-        transform_list.append()
+        transform_list.append(transforms.Grayscale(1))
+                
+
 
     
 
