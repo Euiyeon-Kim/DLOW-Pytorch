@@ -1,0 +1,11 @@
+{
+	"S_nc" : 3,
+	"T_nc" : 3,
+	"learning_rate": 0.0002,
+	"beta" : 0.5,
+    "lambda": 10,
+	"batch_size": 16,
+	"num_epochs": 100,
+	"save_summary_steps": 100,
+	"num_workers": 4
+}
