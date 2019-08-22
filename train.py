@@ -47,16 +47,14 @@ def actual_train(epoch, S2T, T2S, D_S, D_T, ans_R, ans_F, G_optimizer, D_optimiz
 
         for i, batch in enumerate(dataloader):
 
-            if params.cuda:
-                batch = batch.cuda(async=True)
+            real_S = Variable(batch['S_img'])
+            real_T = Variable(batch['T_img'])
 
-            batch = Variable(batch) # Normalized
-            real_S = batch['S_img']
-            real_T = batch['T_img']
+            if params.cuda:
+                real_S = real_S.cuda(async=True)
+                real_T = real_T.cuda(async=True)
 
             ##### Training for Generators #####
-            D_S.set_requires_grad(False)
-            D_T.set_requires_grad(False)
             G_optimizer.zero_grad()
 
             # Identity loss at section 5.2
@@ -85,9 +83,6 @@ def actual_train(epoch, S2T, T2S, D_S, D_T, ans_R, ans_F, G_optimizer, D_optimiz
             G_optimizer.step()
 
             ##### Training for Discriminator #####
-            D_S.set_requires_grad(True)
-            D_T.set_requires_grad(True)
-
             D_optimizer.zero_grad()
 
             pred_for_realS = D_S(real_S, ans_R)
