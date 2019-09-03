@@ -1,19 +1,42 @@
+'''
+    Objective : Seperate dataset into train, validation, test sets
+                Image preprocessing
+    
+    * Before
+    └─ dataset
+	   ├─ Source
+       └─ Target
+    
+    * After
+    └─ dataset
+	   ├─ train
+	   │  ├─ Source
+	   │  └─ Target
+       ├─ val
+	   │  ├─ Source
+	   │  └─ Target
+	   └─ test
+	      ├─ Source
+	      └─ Target
+'''
+
+
 import argparse
 import random
 import os
 
 from PIL import Image
-from tqdm import tqdm
+from tqdm import tqdm # for visualized logging
+
+SIZE = (1024, 576)
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--Source_dir', default='./GTA5', help="Where to find Source dataset")
-parser.add_argument('--Target_dir', default='./bdd100k', help="Where to find Target dataset")
-parser.add_argument('--Source_output_dir', default='./GTA5', help="Where to write Source dataset")
-parser.add_argument('--Target_output_dir', default='./bdd100k', help="Where to write Target dataset")
+parser.add_argument('--Source_dir', default='../dataset/Source', help="Where to find Source dataset")
+parser.add_argument('--Target_dir', default='../dataset/Target', help="Where to find Target dataset")
 
 def resize_and_save(filepath, output_dir, size=SIZE):
     image = Image.open(filepath)
-    image = image.resize((size, size), Image.BILINEAR)
+    image = image.resize(size, Image.BILINEAR)
     image.save(os.path.join(output_dir, filepath.split('/')[-1]))
 
 

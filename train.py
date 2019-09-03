@@ -1,255 +1,165 @@
+#!/usr/bin/python3
+
 import argparse
-import itertools
 import logging
-import os
-import numpy as np
-from PIL import Image
-
 import torch
-import torch.nn as nn
-import torch.optim as optim
-from torch.autograd import Variable
-from tqdm import tqdm # for visualized logging
 
-import utils
-from evaluate import evaluate
-import data.data_loader as dataLoader
-import model.CycleGAN as model
+from data import DataLoader
+from model.Interpolation import InterpolationGAN
+
+from util.utils import Logger
+
 
 parser = argparse.ArgumentParser()
+
+# Basic settings
+parser.add_argument('--cuda', type=bool, default=True, help="Use GPU computation")
+parser.add_argument('--gpu_id', type=int, default=0, help="GPU id to use")
+parser.add_argument('--start_epoch', type=int, default=0, help="Start point to train")
+parser.add_argument('--num_epochs', type=int, default=100, help="# of epoch to train")
+parser.add_argument('--num_worker', type=int, default=4, help="# of cpu threads to use during batch generation")
+parser.add_argument('--save_summary_steps', type=int, default=100, help="# of iter to save current status")
+parser.add_argument('--buf_size', type=int, default=50, help='Buffer size to save previous generated images')
+
+# Related to dataset
+parser.add_argument('--root_dir', type=str, default='./dataset', help="Where to find dataset")
+parser.add_argument('--S_nc', type=int, default=3, help="Source dataset's channels")
+parser.add_argument('--T_nc', type=int, default=3, help="Target dataset's channels")
+parser.add_argument('--resize_W', type=int, default=1024, help='Resize data to have this width') # 아직 안쓰는 중
+parser.add_argument('--resize_H', type=int, default=576, help='Resize data to have this height') # 아직 안쓰는 중
+parser.add_argument('--fixed_pair', type=bool, default=True, help='Maintain Source dataset and Target dataset\'s pair')
+
 # Related to directory
-parser.add_argument('--S_dir', default='./data/GTA5', help="Where to find Source dataset")
-parser.add_argument('--T_dir', default='./data/bdd100k', help="Where to find Target dataset")
-parser.add_argument('--model_dir', default='./model', help="Directory containing the params")
 parser.add_argument('--checkpoint_dir', default='./model/checkpoint', help="Directory to save model")
-parser.add_argument('--restore_file', default=None, help="Name of the file in --checkpoint_dir")
+parser.add_argument('--restore_filename', default=None, help="Name of the file in --checkpoint_dir")
 parser.add_argument('--output_dir', default='./output', help="Directory to save outputs")
+
+# Related to training (Hyper-parameters)
+parser.add_argument('--lr', type=float, default=0.0002, help="Learning rate")
+parser.add_argument('--beta', type=float, default=0.5, help="Used with Adam optimizer")
+parser.add_argument('--n_res_blocks', type=int, default=9, help="Number of residual blocks used to make G")
+parser.add_argument('--lamda_cycle', type=float, default=10, help="Lamda for cycle consistency loss")
+parser.add_argument('--lamda_ident', type=float, default=10, help="Lamda for identity loss")
+parser.add_argument('--batch_size', type=int, default=16, help="Batch size")
+parser.add_argument('--use_dropout', type=bool, default=False, help="Wether to use dropout or not")
 
 # Related to learning rate policy
 parser.add_argument('--lr_policy', type=str, default='linear', help="Learning rate scheduler")
-parser.add_argument('--epoch_count', type=int, default=1, help="Starting epoch") # For continuous training
 parser.add_argument('--start_decay', type=int, default=100, help="# of iter at stating learning rate decay")
 parser.add_argument('--decay_cycle', type=int, default=100, help="# of iter to linearly decay learning rate")
 parser.add_argument('--lr_decay_iters', type=int, default=50, help="Multiply by gamma every lr_decay_iters iterations")
 
 
-def actual_train(epoch, S2T, T2S, D_S, D_T, ans_R, ans_F, G_optimizer, D_optimizer, losses, dataloader, params):
-    S2T.train()
-    T2S.train()
-    D_S.train()
-    D_T.train()
+if __name__ == "__main__":
 
-    summary = []
-    avg_Gloss = utils.RunningAverage()
-    avg_Dloss = utils.RunningAverage()
-
-    with tqdm(total=len(dataloader)) as t:
-
-        for i, batch in enumerate(dataloader):
-
-            real_S = Variable(batch['S_img'])
-            real_T = Variable(batch['T_img'])
-
-            if params.cuda:
-                real_S = real_S.cuda(async=True)
-                real_T = real_T.cuda(async=True)
-
-            ##### Training for Generators #####
-            G_optimizer.zero_grad()
-
-            # Identity loss at section 5.2
-            same_T = S2T(real_T)
-            same_S = S2T(real_S)
-            S_identity_loss = losses['criterion_identity'](same_S, real_S)
-            T_identity_loss = losses['criterion_identity'](same_T, real_T)
-
-            # Adversarial loss at section 3.1
-            fake_T = S2T(real_S)
-            fake_S = T2S(real_T)
-            pred_for_fakeS = D_S(fake_S)
-            pred_for_fakeT = D_T(fake_T)
-            S2T_GAN_loss = losses['criterion_GAN'](pred_for_fakeS, ans_R)*5.0 # hyper-parameter
-            T2S_GAN_loss = losses['criterion_GAN'](pred_for_fakeT, ans_R)*5.0
-
-            # Cycle consistency loss at section 3.2
-            recons_S = T2S(fake_T)
-            recons_T = S2T(fake_S)
-            S_cycle_loss = losses['criterion_cycle'](recons_S, real_S)*10.0 # hyper-parameter(10.0*0.5)
-            T_cycle_loss = losses['criterion_cycle'](recons_T, real_T)*10.0
-
-            G_loss = S_identity_loss + T_identity_loss + S2T_GAN_loss + T2S_GAN_loss + S_cycle_loss + T_cycle_loss
-            G_loss.backward()
-
-            G_optimizer.step()
-
-            ##### Training for Discriminator #####
-            D_optimizer.zero_grad()
-
-            pred_for_realS = D_S(real_S, ans_R)
-            pred_for_fakeT = D_S(fake_T, ans_F)
-            pred_for_reconsS = D_S(recons_S, ans_R)
-            DS_loss = pred_for_realS + pred_for_fakeT+pred_for_reconsS
-            DS_loss.backward()
-
-            pred_for_realT = D_T(real_T, ans_R)
-            pred_for_fakeS = D_T(fake_S, ans_F)
-            pred_for_reconsT = D_T(recons_T, ans_R)
-            DT_loss = pred_for_realT + pred_for_fakeS + pred_for_reconsT
-            DT_loss.backward()
-
-            D_optimizer.step()
-
-            if i % params.save_summary_steps == 0:
-                # Extract data from torch variable / Move to CPU / Convert to numpy arrays
-                real_S = real_S.data.cpu().numpy()
-                real_T = real_T.data.cpu().numpy()
-                fake_S = fake_S.data.cpu().numpy()
-                fake_T = fake_T.data.cpu().numpy()
-                recons_S = recons_S.data.cpu().numpy()
-                recons_T = recons_T.data.cpu().numpy()
-
-                # Compute all metrics on this batch
-                summary_batch = {}
-                summary_batch['G_loss'] = G_loss.item()
-                summary_batch['DS_loss'] = DS_loss.item()
-                summary_batch['DT_loss'] = DT_loss.item()
-
-                summary.append(summary_batch)
-
-                real_S = np.transpose(real_S[0], (1, 2, 0)).astype('uint8')
-                real_T = np.transpose(real_T[0], (1, 2, 0)).astype('uint8')
-                fake_S = np.transpose(fake_S[0], (1, 2, 0)).astype('uint8')
-                fake_T = np.transpose(fake_T[0], (1, 2, 0)).astype('uint8')
-                recons_S = np.transpose(recons_S[0], (1, 2, 0)).astype('uint8')
-                recons_T = np.transpose(recons_T[0], (1, 2, 0)).astype('uint8')
-
-                img1 = Image.fromarray(real_S, 'RGB')
-                img1.save(os.path.join(args.output_dir, 'Epoch' + str(epoch) + '_Step' + str(i) + '_real_S.png'))
-                img2 = Image.fromarray(fake_T, 'RGB')
-                img2.save(os.path.join(args.output_dir, 'Epoch' + str(epoch) + '_Step' + str(i) + '_fake_T.png'))
-                img3 = Image.fromarray(recons_S, 'RGB')
-                img3.save(os.path.join(args.output_dir, 'Epoch' + str(epoch) + '_Step' + str(i) + '_recons_S.png'))
-                img4 = Image.fromarray(real_T, 'RGB')
-                img4.save(os.path.join(args.output_dir, 'Epoch' + str(epoch) + '_Step' + str(i) + '_real_T.png'))
-                img5 = Image.fromarray(fake_S, 'RGB')
-                img5.save(os.path.join(args.output_dir, 'Epoch' + str(epoch) + '_Step' + str(i) + '_fake_S.png'))
-                img6 = Image.fromarray(recons_T, 'RGB')
-                img6.save(os.path.join(args.output_dir, 'Epoch' + str(epoch) + '_Step' + str(i) + '_recons_T.png'))
-
-            avg_Gloss.update(G_loss.item())
-            avg_Dloss.update(DS_loss.item()+DT_loss.item())
-            t.set_postfix(G_loss='{:05.3f}'.format(avg_Gloss()))
-            t.set_postfix(D_loss='{:05.3f}'.format(avg_Dloss()))
-            t.update()
-
-
-def train(S2T, T2S, D_S, D_T, ans_R, ans_F, train_dataloader, val_dataloader, G_optimizer, D_optimizer, losses,
-          params, model_dir, checkpoint_dir, restore_file=None):
-    # Restoring model
-    if args.restore_file is not None:
-        restore_path = os.path.join(args.checkpoint_dir, args.restore_file + '.pth.tar')
-        logging.info("Restoring parameters from {}".format(restore_path))
-        utils.load_checkpoint(restore_path, S2T, T2S, D_S, D_T)
-
-    best_val_error = np.inf
-
-    for epoch in range(params.num_epochs):
-        logging.info("Epoch {}/{}".format(epoch + 1, params.num_epochs))
-
-        actual_train(epoch, S2T, T2S, D_S, D_T, ans_R, ans_F, G_optimizer, D_optimizer,
-                     losses, train_dataloader, params)
-
-        val_losses = evaluate(S2T, T2S, D_S, D_T, ans_R, ans_F, losses, dataloaders, params)
-
-        val_error = val_losses['Total_loss']
-        is_best = val_error <= best_val_error
-
-        if not os.path.isdir(checkpoint_dir):
-            os.mkdir(checkpoint_dir)
-
-        utils.save_checkpoint({'epoch': epoch+1,
-                               'S2T_state_dict': S2T.state_dict(),
-                               'T2S_state_dict': T2S.state_dict(),
-                               'D_S_state_dict': D_S.state_dict(),
-                               'D_T_state_dict': D_T.state_dict(),
-                               'G_optimizer_state_dict': G_optimizer.state_dict(),
-                               'D_optimizer_state_dict': D_optimizer.state_dict()},
-                              is_best=is_best,
-                              checkpoint_path=checkpoint_dir)
-
-        if is_best:
-            logging.info("< - Found New Best Parameters - >")
-            best_val_error = val_error
-
-            best_json_path = os.path.join(model_dir, "Test_best_results.json")
-            utils.save_dict_to_json(val_losses, best_json_path)
-
-        last_json_path = os.path.join(model_dir, "Test_last_results.json")
-        utils.save_dict_to_json(val_losses, last_json_path)
-
-
-
-if __name__=='__main__':
-    args = parser.parse_args()
-
-    # Hyper-parameters setting
-    json_path = os.path.join(args.model_dir, 'params.json')
-    assert os.path.isfile(json_path), "No json configuration file at {}".format(json_path)
-    params = utils.Params(json_path)
+    params = parser.parse_args()
+    
+    # GPU 사용 가능 여부 확인
     params.cuda = torch.cuda.is_available()
-    torch.manual_seed(1385)
 
-    # Logger setting
-    utils.set_logger(os.path.join(args.model_dir, 'train.log'))
+    InterpolationGAN(params)
 
-    # Dataloader setting
     logging.info("Loading the data...")
-    dataloaders = dataLoader.get_dataloaders(['train', 'val'], args.S_dir, args.T_dir, params)
+    dataloaders = DataLoader.get_dataloaders(['train', 'val'], params)
     train_dl = dataloaders['train']
     val_dl = dataloaders['val']
-    logging.info("- done")
+    logging.info(" -done")
 
-    # Define model and initialization
-    S2T = model.Generator(params.S_nc, params.T_nc)
-    T2S = model.Generator(params.T_nc, params.S_nc)
-    D_S = model.Discriminator(params.S_nc)
-    D_T = model.Discriminator(params.T_nc)
+    # Logging 을 어예할지 잘 생각해보자꾸나.
+    #logger = Logger(params.n_epochs, len(dataloaders))
 
-    if params.cuda:
-        S2T.cuda()
-        T2S.cuda()
-        D_S.cuda()
-        D_T.cuda()
+    ###### Training ######
+    for epoch in range(params.epoch, params.n_epochs):
+        for i, batch in enumerate(dataloader):
+            # Set model input
+            real_A = Variable(input_A.copy_(batch['A']))
+            real_B = Variable(input_B.copy_(batch['B']))
 
-    utils.init_weights(S2T)
-    utils.init_weights(T2S)
-    utils.init_weights(D_S)
-    utils.init_weights(D_T)
+            ###### Generators A2B and B2A ######
+            paramsimizer_G.zero_grad()
 
-    # Define Lossess
-    losses = {}
-    losses['criterion_GAN'] = nn.MSELoss() #
-    losses['criterion_cycle'] = nn.L1Loss() # C
-    losses['criterion_identity'] = nn.L1Loss() #
+            # Identity loss
+            # G_A2B(B) should equal B if real B is fed
+            same_B = netG_A2B(real_B)
+            loss_identity_B = criterion_identity(same_B, real_B)*5.0
+            # G_B2A(A) should equal A if real A is fed
+            same_A = netG_B2A(real_A)
+            loss_identity_A = criterion_identity(same_A, real_A)*5.0
 
-    # Define optimizers
-    G_optimizer = optim.Adam(itertools.chain(S2T.parameters(), T2S.parameters()),
-                             lr=params.learning_rate, betas=(params.beta, 0.999))
-    D_optimizer = optim.Adam(itertools.chain(D_S.parameters(), D_T.parameters()),
-                             lr=params.learning_rate, betas=(params.beta, 0.999))
+            # GAN loss
+            fake_B = netG_A2B(real_A)
+            pred_fake = netD_B(fake_B)
+            loss_GAN_A2B = criterion_GAN(pred_fake, target_real)
 
-    # Define answer for discriminator
-    Tensor = torch.cuda.FloatTensor if params.cuda else torch.Tensor
-    ans_R = Variable(Tensor(params.batch_size).fill_(1.0), requires_grad=False)
-    ans_F = Variable(Tensor(params.batch_size).fill_(0.0), requires_grad=False)
+            fake_A = netG_B2A(real_B)
+            pred_fake = netD_A(fake_A)
+            loss_GAN_B2A = criterion_GAN(pred_fake, target_real)
 
-    # Define learning rate scheduler if nesessary
-    # lr_scheduler_G = utils.get_scheduler(G_optimizer, args)
-    # lr_scheduler_D = utils.get_scheduler(D_optimizer, args)
+            # Cycle loss
+            recovered_A = netG_B2A(fake_B)
+            loss_cycle_ABA = criterion_cycle(recovered_A, real_A)*10.0
 
-    logging.info("Start train for {}epochs".format(params.num_epochs))
-    train(S2T, T2S, D_S, D_T, ans_R, ans_F, train_dl, val_dl, G_optimizer, D_optimizer, losses, params,
-          args.model_dir, args.checkpoint_dir, args.restore_file)
+            recovered_B = netG_A2B(fake_A)
+            loss_cycle_BAB = criterion_cycle(recovered_B, real_B)*10.0
 
+            # Total loss
+            loss_G = loss_identity_A + loss_identity_B + loss_GAN_A2B + loss_GAN_B2A + loss_cycle_ABA + loss_cycle_BAB
+            loss_G.backward()
+            
+            paramsimizer_G.step()
+            ###################################
 
+            ###### Discriminator A ######
+            paramsimizer_D_A.zero_grad()
 
+            # Real loss
+            pred_real = netD_A(real_A)
+            loss_D_real = criterion_GAN(pred_real, target_real)
+
+            # Fake loss
+            fake_A = fake_A_buffer.push_and_pop(fake_A)
+            pred_fake = netD_A(fake_A.detach())
+            loss_D_fake = criterion_GAN(pred_fake, target_fake)
+
+            # Total loss
+            loss_D_A = (loss_D_real + loss_D_fake)*0.5
+            loss_D_A.backward()
+
+            paramsimizer_D_A.step()
+            ###################################
+
+            ###### Discriminator B ######
+            paramsimizer_D_B.zero_grad()
+
+            # Real loss
+            pred_real = netD_B(real_B)
+            loss_D_real = criterion_GAN(pred_real, target_real)
+            
+            # Fake loss
+            fake_B = fake_B_buffer.push_and_pop(fake_B)
+            pred_fake = netD_B(fake_B.detach())
+            loss_D_fake = criterion_GAN(pred_fake, target_fake)
+
+            # Total loss
+            loss_D_B = (loss_D_real + loss_D_fake)*0.5
+            loss_D_B.backward()
+
+            paramsimizer_D_B.step()
+            ###################################
+
+            # Progress report (http://localhost:8097)
+            logger.log({'loss_G': loss_G, 'loss_G_identity': (loss_identity_A + loss_identity_B), 'loss_G_GAN': (loss_GAN_A2B + loss_GAN_B2A),
+                        'loss_G_cycle': (loss_cycle_ABA + loss_cycle_BAB), 'loss_D': (loss_D_A + loss_D_B)}, 
+                        images={'real_A': real_A, 'real_B': real_B, 'fake_A': fake_A, 'fake_B': fake_B})
+
+        # Update learning rates
+        lr_scheduler_G.step()
+        lr_scheduler_D_A.step()
+        lr_scheduler_D_B.step()
+
+        # Save models checkpoints
+        torch.save(netG_A2B.state_dict(), 'output/netG_A2B.pth')
+        torch.save(netG_B2A.state_dict(), 'output/netG_B2A.pth')
+        torch.save(netD_A.state_dict(), 'output/netD_A.pth')
+        torch.save(netD_B.state_dict(), 'output/netD_B.pth')
+    ###################################
