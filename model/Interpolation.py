@@ -17,7 +17,7 @@ class InterpolationGAN(nn.Module):
     def __init__(self, params, is_train=True):
         self.params = params
         # Device 설정
-        if params.cuda:
+        if params.cuda: # 후에 multi-GPU coding할 수 있으면 적용
             self.device = torch.device('cuda:{}'.format(params.gpu_id)) 
         else:
             self.device = torch.device('cpu')
@@ -51,14 +51,14 @@ class InterpolationGAN(nn.Module):
 
         # Losses 및 Optimizer 생성
         if is_train:
-            assert(params.S_nc == params.T_nc) # Identity Loss를 사용하려면 필요
-            # 이전 생성 결과를 저장할 버퍼 --> 이거 왜 만드는 것이야
+            assert(params.S_nc == params.T_nc)          # Identity Loss를 사용하려면 필요
+            # Buffers to save previously generated images
             self.save_fake_S = ImageBuffer(params.buf_size)
             self.save_fake_T = ImageBuffer(params.buf_size)
             # Losses
-            self.criterion_GAN = nn.MSELoss()  # Adversarial loss at CycleGAN section 3.1
-            self.criterion_cycle = nn.L1Loss()  # Cycle consistency loss at CycleGAN section 3.2
-            self.criterion_identity = nn.L1Loss()  # Identity loss at CycleGAN section 5.2
+            self.criterion_GAN = nn.MSELoss()           # Adversarial loss at CycleGAN section 3.1
+            self.criterion_cycle = nn.L1Loss()          # Cycle consistency loss at CycleGAN section 3.2
+            self.criterion_identity = nn.L1Loss()       # Identity loss at CycleGAN section 5.2
             # Optimizer
             self.optimizer_G = torch.optim.Adam(itertools.chain(self.G_S.parameters(), self.G_T.parameters()),
                                                 lr=params.lr, betas=(params.beta, 0.999))
@@ -86,10 +86,10 @@ class InterpolationGAN(nn.Module):
                     param.requires_grad = requires_grad
 
     def forward(self):
-        self.fake_S = self.G_S(self.real_T)   # G_S(T)
-        self.recons_T = self.G_T(self.fake_S) # G_T(G_S(T))
-        self.fake_T = self.G_T(self.real_S)   # G_T(S)
-        self.recons_S = self.G_S(self.fake_T) # G_S(G_T(S))
+        self.fake_S = self.G_S(self.real_T)     # G_S(T)
+        self.recons_T = self.G_T(self.fake_S)   # G_T(G_S(T))
+        self.fake_T = self.G_T(self.real_S)     # G_T(S)
+        self.recons_S = self.G_S(self.fake_T)   # G_S(G_T(S))
 
     def train_D(self):
         '''
@@ -100,11 +100,11 @@ class InterpolationGAN(nn.Module):
         '''
         # D_S training
         pred_real = self.D_S(self.real_S)
-        loss_S_real = self.criterion_GAN(pred_real, True) # 진짜 이미지를 진짜라고
+        loss_S_real = self.criterion_GAN(pred_real, True)   # 진짜 이미지를 진짜라고
 
         fake_S = self.save_fake_S.query(self.fake_S)
         pred_fake = self.D_S(fake_S.detach())
-        loss_S_fake = self.criterion_GAN(pred_fake, False) # 가짜 이미지를 가짜라고
+        loss_S_fake = self.criterion_GAN(pred_fake, False)  # 가짜 이미지를 가짜라고
 
         self.loss_D_S = (loss_S_fake + loss_S_real)*0.5
         self.loss_D_S.backward()
@@ -144,13 +144,13 @@ class InterpolationGAN(nn.Module):
 
     def train(self):
         self.forward()
-
-        self.set_requires_grad([self.D_S, self.D_T], False) # Generator학습에 Discriminator gradient는 필요 x
+        # Generator학습에 Discriminator gradient는 필요 x
+        self.set_requires_grad([self.D_S, self.D_T], False)
         self.optimizer_G.zero_grad()
         self.train_G()
         self.optimizer_G.step()
-
-        self.set_requires_grad([self.D_S, self.D_T], True) # set_require_grad를 사용하지 않고 train 함수 내에서 detach
+        # set_require_grad를 사용하지 않고 train 함수 내에서 detach
+        self.set_requires_grad([self.D_S, self.D_T], True)
         self.optimizer_D.zero_grad()
         self.train_D_S()
         self.train_D_T()
