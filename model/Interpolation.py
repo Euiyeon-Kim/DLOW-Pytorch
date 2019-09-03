@@ -11,9 +11,11 @@ from util import utils
 
 sys.path.append("..")
 
+
 class InterpolationGAN(nn.Module):
 
     def __init__(self, params, is_train=True):
+        self.params = params
         # Device 설정
         if params.cuda:
             self.device = torch.device('cuda:{}'.format(params.gpu_id)) 
@@ -21,8 +23,8 @@ class InterpolationGAN(nn.Module):
             self.device = torch.device('cpu')
 
         # Generator 생성 및 초기화
-        self.G_S = Base.Generator(params.S_nc, params.T_nc)  # T를 S로 변환하는 Generator
-        self.G_T = Base.Generator(params.T_nc, params.S_nc)  # S를 T로 변환하는 Generator
+        self.G_S = Base.Generator(params.T_nc, params.S_nc)  # T를 S로 변환하는 Generator
+        self.G_T = Base.Generator(params.S_nc, params.T_nc)  # S를 T로 변환하는 Generator
         if params.cuda:
             self.G_S.cuda()
             self.G_T.cuda()
@@ -63,32 +65,107 @@ class InterpolationGAN(nn.Module):
             self.optimizer_D = torch.optim.Adam(itertools.chain(self.D_S.parameters(), self.D_T.parameters()),
                                                 lr=params.lr, betas=(params.beta, 0.999))
 
-            # LR schedulers
-            '''lr_scheduler_G = torch.optim.lr_scheduler.LambdaLR(optimizer_G,
-                                                                  lr_lambda=LambdaLR(params.n_epochs, params.epoch,
-                                                                                     params.decay_epoch).step)
-            lr_scheduler_D_A = torch.optim.lr_scheduler.LambdaLR(paramsimizer_D_A,
-                                                                    lr_lambda=LambdaLR(params.n_epochs, params.epoch,
-                                                                                       params.decay_epoch).step)
-            lr_scheduler_D_B = torch.optim.lr_scheduler.LambdaLR(paramsimizer_D_B,
-                                                                    lr_lambda=LambdaLR(params.n_epochs, params.epoch,
-                                                                                       params.decay_epoch).step)'''
+            # 필요에 따라 LR schedulers 추가 선언
 
-        # Inputs & targets memory allocation
-        Tensor = torch.cuda.FloatTensor if params.cuda else torch.Tensor
-        input_A = Tensor(params.batchSize, params.input_nc, params.size, params.size)
-        input_B = Tensor(params.batchSize, params.output_nc, params.size, params.size)
-        target_real = Variable(Tensor(params.batchSize).fill_(1.0), requires_grad=False)
-        target_fake = Variable(Tensor(params.batchSize).fill_(0.0), requires_grad=False)
-
-    def set_input(self, input):
+    def set_input(self):
         ''' 
             Iteration마다 DataLoader로부터 input을 받아서 unpack
         '''
-        self.real_S = input['S'].to(self.device)
-        self.real_T = input['T']
+        self.real_S = Variable(input['S_img'].to(self.device))
+        self.real_T = Variable(input['T_img'].to(self.devive))
+
+    def set_requires_grad(self, model_list, requires_grad=False):
+        """
+            불필요한 연산을 줄이기 위해 사용
+        """
+        if not isinstance(model_list, list):
+            model_list = [model_list]
+        for model in model_list:
+            if model is not None:
+                for param in model.parameters():
+                    param.requires_grad = requires_grad
+
+    def forward(self):
+        self.fake_S = self.G_S(self.real_T)   # G_S(T)
+        self.recons_T = self.G_T(self.fake_S) # G_T(G_S(T))
+        self.fake_T = self.G_T(self.real_S)   # G_T(S)
+        self.recons_S = self.G_S(self.fake_T) # G_S(G_T(S))
+
+    def train_D(self):
+        '''
+            real_T -- G_T --> fake_S -->
+                                            D_S
+                              real_S -->
+            이 때 fake_S에서 detach를 해주지 않을 경우 real_T까지 gradient를 계산
+        '''
+        # D_S training
+        pred_real = self.D_S(self.real_S)
+        loss_S_real = self.criterion_GAN(pred_real, True) # 진짜 이미지를 진짜라고
+
+        fake_S = self.save_fake_S.query(self.fake_S)
+        pred_fake = self.D_S(fake_S.detach())
+        loss_S_fake = self.criterion_GAN(pred_fake, False) # 가짜 이미지를 가짜라고
+
+        self.loss_D_S = (loss_S_fake + loss_S_real)*0.5
+        self.loss_D_S.backward()
+
+        # D_T training
+        pred_real = self.D_T(self.real_T)
+        loss_T_real = self.criterion_GAN(pred_real, True)
+
+        fake_T = self.save_fake_T.query(self.fake_T)
+        pred_fake = self.D_T(fake_T.detach())
+        loss_T_fake = self.criterion_GAN(pred_fake, False)
+
+        self.loss_D_T = (loss_T_fake + loss_T_real)*0.5
+        self.loss_D_T.backward()
+
+    def train_G(self):
+        lambda_cycle = self.params.lambda_cycle
+        lambda_ident = self.params.lambda_ident
+
+        # Identity training
+        self.ident_S = self.G_S(self.real_S)
+        self.loss_ident_S = self.criterion_identity(self.ident_S, self.real_S)*lambda_ident
+        self.ident_T = self.G_T(self.real_T)
+        self.loss_ident_T = self.criterion_identity(self.ident_T, self.real_T)*lambda_ident
+
+        # Adversarial training
+        self.loss_G_S = self.criterion_GAN(self.D_S(self.fake_S), True)
+        self.loss_G_T = self.criterion_GAN(self.D_T(self.fake_T), True)
+
+        # Cycle consistency training
+        self.loss_cycle_S = self.criterion_cycle(self.recons_S, self.real_S)*lambda_cycle
+        self.loss_cycle_T = self.criterion_cycle(self.recons_T, self.real_T)*lambda_cycle
+
+        self.loss_G = self.ident_S + self.loss_G_S + self.loss_cycle_S +\
+                      self.loss_ident_T + self.loss_G_T + self.loss_cycle_T
+        self.loss_G.backward()
+
+    def train(self):
+        self.forward()
+
+        self.set_requires_grad([self.D_S, self.D_T], False) # Generator학습에 Discriminator gradient는 필요 x
+        self.optimizer_G.zero_grad()
+        self.train_G()
+        self.optimizer_G.step()
+
+        self.set_requires_grad([self.D_S, self.D_T], True) # set_require_grad를 사용하지 않고 train 함수 내에서 detach
+        self.optimizer_D.zero_grad()
+        self.train_D_S()
+        self.train_D_T()
+        self.optimizer_D.step()
 
 
-    def forward(self, input):
-        pass
+
+
+
+
+
+
+
+
+
+
+
 
