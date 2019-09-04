@@ -28,8 +28,8 @@ class InterpolationGAN(nn.Module):
         if params.cuda:
             self.G_S.cuda()
             self.G_T.cuda()
-        self.G_S.apply(utils.weights_init_normal)
-        self.G_T.apply(utils.weights_init_normal)
+        utils.init_weights(self.G_S)
+        utils.init_weights(self.G_T)
 
         # Discriminator 생성 및 초기화
         if is_train:
@@ -38,8 +38,8 @@ class InterpolationGAN(nn.Module):
             if params.cuda:
                 self.D_S.cuda()
                 self.D_T.cuda()
-            self.D_S.apply(utils.weights_init_normal)
-            self.D_T.apply(utils.weights_init_normal)
+            utils.init_weights(self.D_S)
+            utils.init_weights(self.D_T)
 
         # Model 구성요소 이름 저장
         if is_train:
@@ -152,12 +152,20 @@ class InterpolationGAN(nn.Module):
         # set_require_grad를 사용하지 않고 train 함수 내에서 detach
         self.set_requires_grad([self.D_S, self.D_T], True)
         self.optimizer_D.zero_grad()
-        self.train_D_S()
-        self.train_D_T()
+        self.train_D()
         self.optimizer_D.step()
 
+    def get_data_for_logging(self):
+        log_for_term = {'G_total': self.loss_G, 'D_total': self.loss_D_S+self.loss_D_T}                         # Terminal에 logging할 정보
 
+        loss_log = {'G_total': self.loss_G, 'G_adversarial': self.loss_G_S+self.loss_G_T,                       # Visdom에 visualize할 loss graph
+                    'G_identity': self.ident_S+self.ident_T, 'G_cycle':self.loss_cycle_S + self.loss_cycle_T,
+                    'D_total': self.loss_D_S + self.loss_D_T}
 
+        img_log = { 'real_S':self.real_S[0], 'fake_T':self.fake_T[0], 'recons_S':self.recons_S[0],              # Visdom에 visualize할 images
+                    'real_T':self.real_T[0], 'fake_S':self.fake_S[0], 'recons_T':self.recons_T[0]}
+
+        return log_for_term, loss_log, img_log
 
 
 

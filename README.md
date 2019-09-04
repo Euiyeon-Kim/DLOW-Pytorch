@@ -22,8 +22,8 @@ Reproduce DLOW: Domain Flow for Adaptation and Generalization
 	│		Interpolation.py
 	│		DLOW.py
 	├─ utils
-	│		Logger.py
-	│		Visdom.py
+	│		Buffer.py : Discriminator를 학습시킬 때 사용할 버퍼
+	│		Logger.py : Terminal + Visdom Logging 
 	├─ log
     │		train.log
 	│		evaluate.log

@@ -6,6 +6,7 @@ import torch
 from tqdm import tqdm
 
 from data import DataLoader
+from util import Logger
 from model.Interpolation import InterpolationGAN
 
 parser = argparse.ArgumentParser()
@@ -55,7 +56,7 @@ if __name__ == "__main__":
     # GPU 사용 가능 여부 확인
     params.cuda = torch.cuda.is_available()
 
-    InterpolationGAN(params)
+    interpolationGAN = InterpolationGAN(params)
 
     logging.info("Loading the data...")
     dataloaders = DataLoader.get_dataloaders(['train', 'val'], params)
@@ -63,7 +64,8 @@ if __name__ == "__main__":
     val_dl = dataloaders['val']
     logging.info(" -done")
 
-    # Logging과 Visualizing 필요
+    # Logging과 Visualizing
+    logger = Logger()
 
     # Train
     with tqdm(total=len(train_dl)) as t:            # For visualized logging
@@ -74,7 +76,8 @@ if __name__ == "__main__":
 
             for i, batch in enumerate(train_dl):
                 iter_start_time = time.time()       # How long does it takes for 1 iter
-
+                term_log, loss_log, img_log = interpolationGAN.get_data_for_logging()
+                logger.log(term_log, loss_log, img_log)
 
 
 

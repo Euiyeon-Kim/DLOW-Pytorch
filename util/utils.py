@@ -1,44 +1,11 @@
 import os
 import json
-import logging
 import shutil
 import numpy as np
 
 import torch
 import torch.nn as nn
-# =======================================
-
-
 from torch.optim import lr_scheduler
-from torch.autograd import Variable
-
-class RunningAverage():
-    def __init__(self):
-        self.steps = 0
-        self.total = 0
-
-    def update(self, val):
-        self.total += val
-        self.steps += 1
-
-    def __call__(self):
-        return self.total / float(self.steps)
-
-
-def set_logger(log_path):
-    logger = logging.getLogger()
-    logger.setLevel(logging.INFO) # Ignore logging messages which is less severe than level
-
-    if not logger.handlers:
-        # Logging to a file
-        file_handler = logging.FileHandler(log_path)
-        file_handler.setFormatter(logging.Formatter('%(asctime)s:%(levelname)s: %(message)s'))
-        logger.addHandler(file_handler)
-
-        # Logging to a console
-        stream_handler = logging.StreamHandler()
-        stream_handler.setFormatter(logging.Formatter('%(message)s'))
-        logger.addHandler(stream_handler)
 
 
 def save_dict_to_json(d, json_path): # d=dictionary
@@ -79,7 +46,7 @@ def load_checkpoint(checkpoint_path, S2T, T2S, D_S, D_T, G_paramsimizer=None, D_
     return checkpoint
 
 
-def init_weights(net, init_type='normal', init_gain=0.02):
+def init_weights(network, init_type='normal', init_gain=0.02):
 
     def actual_init(model):
         classname = model.__class__.__name__
@@ -99,8 +66,7 @@ def init_weights(net, init_type='normal', init_gain=0.02):
             nn.init.normal_(model.weight.data, 1.0, init_gain)
             nn.init.constant_(model.bias.data, 0.0)
 
-    net.apply(actual_init)
-
+    network.apply(actual_init)
 
 # Referenced https://github.com/junyanz/pytorch-CycleGAN-and-pix2pix/blob/master/models/networks.py
 def get_scheduler(paramsimizer, args):
@@ -122,6 +88,7 @@ def get_scheduler(paramsimizer, args):
 
 def tensor2img(tensor):
     '''
+        단 tensor는 하나의 이미지 크기
         Input이 tensor라면 numpy image array로 변환
         Dataloader에서 data를 읽어올 때 pixel값의 범위를 [-1, 1]로 normalize했으므로 이를 재변환
     '''
@@ -131,11 +98,5 @@ def tensor2img(tensor):
     return img.astype(np.uint8)
 
 
-def weights_init_normal(m):
-    classname = m.__class__.__name__
-    if classname.find('Conv') != -1:
-        torch.nn.init.normal_(m.weight.data, 0.0, 0.02)
-    elif classname.find('BatchNorm2d') != -1:
-        torch.nn.init.normal_(m.weight.data, 1.0, 0.02)
-        torch.nn.init.constant_(m.bias.data, 0.0)
+
 
