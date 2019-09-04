@@ -1,4 +1,5 @@
 import os
+import sys
 import random
 from PIL import Image
 from torch.utils.data import DataLoader, Dataset
@@ -9,7 +10,6 @@ from torchvision.transforms import transforms
     Target Dataset : bdd100k (unlabeled)
     Resize datasets into (1024, 576) size
 '''
-
 
 
 class ImageDataset(Dataset):
@@ -79,7 +79,7 @@ def get_transformer(H, W):
 def get_dataloaders(types, params):
     dataloaders = {}
 
-    S_transformer, T_transformer = get_transformer(params.resize_W, params.resize_H)
+    S_transformer, T_transformer = get_transformer(params.resize_H, params.resize_W)
     for option in ['train', 'val', 'test']:
         if option in types:
             data_loader = DataLoader(ImageDataset(params.root_dir, S_transformer, T_transformer,

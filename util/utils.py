@@ -92,7 +92,7 @@ def tensor2img(tensor):
         Input이 tensor라면 numpy image array로 변환
         Dataloader에서 data를 읽어올 때 pixel값의 범위를 [-1, 1]로 normalize했으므로 이를 재변환
     '''
-    img = ((tensor[0].cpu().float().numpy()) + 1) / 2.0 * 255.0
+    img = ((tensor.cpu().float().numpy()) + 1) / 2.0 * 255.0
     if img.shape[0]==1:
         img = np.tile(img, (3, 1, 1))
     return img.astype(np.uint8)

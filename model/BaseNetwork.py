@@ -1,6 +1,6 @@
+import torch
 import torch.nn as nn
 import torch.nn.functional as F
-
 
 class ResBlock(nn.Module):
     def __init__(self, input_nc, use_dropout):
@@ -30,7 +30,7 @@ class ResBlock(nn.Module):
 
 
 class Generator(nn.Module):
-    def __init__(self, input_nc, output_nc, n_res_blocks=9):
+    def __init__(self, input_nc, output_nc, use_dropout=False, n_res_blocks=9):
         super(Generator, self).__init__()
 
         # Initial convolution block       
@@ -51,7 +51,7 @@ class Generator(nn.Module):
 
         # Residual blocks
         for _ in range(n_res_blocks):
-            model += [ResBlock(in_features)]
+            model += [ResBlock(in_features, use_dropout)]
 
         # Upsampling
         out_features = in_features//2
@@ -93,6 +93,10 @@ class Discriminator(nn.Module):
                     nn.InstanceNorm2d(512), 
                     nn.LeakyReLU(0.2, inplace=True) ]
 
+        model += [  nn.Conv2d(512, 512, 4, padding=1),
+                    nn.InstanceNorm2d(512),
+                    nn.LeakyReLU(0.2, inplace=True) ]
+
         # FCN classification layer
         model += [nn.Conv2d(512, 1, 4, padding=1)]
 
@@ -101,5 +105,6 @@ class Discriminator(nn.Module):
     def forward(self, x):
         x =  self.model(x)
         # Average pooling and flatten
-        return F.avg_pool2d(x, x.size()[2:]).view(x.size()[0], -1)
+        x = F.avg_pool2d(x, x.size()[2:]).view(x.size()[0], -1)
+        return torch.squeeze(x, 0)
 

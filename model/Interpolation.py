@@ -15,6 +15,7 @@ sys.path.append("..")
 class InterpolationGAN(nn.Module):
 
     def __init__(self, params, is_train=True):
+        super(InterpolationGAN, self).__init__()
         self.params = params
         # Device 설정
         if params.cuda: # 후에 multi-GPU coding할 수 있으면 적용
@@ -23,8 +24,8 @@ class InterpolationGAN(nn.Module):
             self.device = torch.device('cpu')
 
         # Generator 생성 및 초기화
-        self.G_S = Base.Generator(params.T_nc, params.S_nc)  # T를 S로 변환하는 Generator
-        self.G_T = Base.Generator(params.S_nc, params.T_nc)  # S를 T로 변환하는 Generator
+        self.G_S = Base.Generator(params.T_nc, params.S_nc, params.use_dropout, params.n_res_blocks)  # T를 S로 변환하는 Generator
+        self.G_T = Base.Generator(params.S_nc, params.T_nc, params.use_dropout, params.n_res_blocks)  # S를 T로 변환하는 Generator
         if params.cuda:
             self.G_S.cuda()
             self.G_T.cuda()
@@ -40,6 +41,9 @@ class InterpolationGAN(nn.Module):
                 self.D_T.cuda()
             utils.init_weights(self.D_S)
             utils.init_weights(self.D_T)
+            Tensor = torch.cuda.FloatTensor if params.cuda else torch.Tensor
+            self.real = Variable(Tensor(params.batch_size).fill_(1.0), requires_grad=False)
+            self.fake = Variable(Tensor(params.batch_size).fill_(0.0), requires_grad=False)
 
         # Model 구성요소 이름 저장
         if is_train:
@@ -67,12 +71,13 @@ class InterpolationGAN(nn.Module):
 
             # 필요에 따라 LR schedulers 추가 선언
 
-    def set_input(self):
+    def set_input(self, input):
         ''' 
             Iteration마다 DataLoader로부터 input을 받아서 unpack
         '''
         self.real_S = Variable(input['S_img'].to(self.device))
-        self.real_T = Variable(input['T_img'].to(self.devive))
+        self.real_T = Variable(input['T_img'].to(self.device))
+
 
     def set_requires_grad(self, model_list, requires_grad=False):
         """
@@ -100,22 +105,22 @@ class InterpolationGAN(nn.Module):
         '''
         # D_S training
         pred_real = self.D_S(self.real_S)
-        loss_S_real = self.criterion_GAN(pred_real, True)   # 진짜 이미지를 진짜라고
+        loss_S_real = self.criterion_GAN(pred_real, self.real)   # 진짜 이미지를 진짜라고
 
         fake_S = self.save_fake_S.query(self.fake_S)
         pred_fake = self.D_S(fake_S.detach())
-        loss_S_fake = self.criterion_GAN(pred_fake, False)  # 가짜 이미지를 가짜라고
+        loss_S_fake = self.criterion_GAN(pred_fake, self.fake)  # 가짜 이미지를 가짜라고
 
         self.loss_D_S = (loss_S_fake + loss_S_real)*0.5
         self.loss_D_S.backward()
 
         # D_T training
         pred_real = self.D_T(self.real_T)
-        loss_T_real = self.criterion_GAN(pred_real, True)
+        loss_T_real = self.criterion_GAN(pred_real, self.real)
 
         fake_T = self.save_fake_T.query(self.fake_T)
         pred_fake = self.D_T(fake_T.detach())
-        loss_T_fake = self.criterion_GAN(pred_fake, False)
+        loss_T_fake = self.criterion_GAN(pred_fake, self.fake)
 
         self.loss_D_T = (loss_T_fake + loss_T_real)*0.5
         self.loss_D_T.backward()
@@ -131,14 +136,14 @@ class InterpolationGAN(nn.Module):
         self.loss_ident_T = self.criterion_identity(self.ident_T, self.real_T)*lambda_ident
 
         # Adversarial training
-        self.loss_G_S = self.criterion_GAN(self.D_S(self.fake_S), True)
-        self.loss_G_T = self.criterion_GAN(self.D_T(self.fake_T), True)
+        self.loss_G_S = self.criterion_GAN(self.D_S(self.fake_S), self.real)
+        self.loss_G_T = self.criterion_GAN(self.D_T(self.fake_T), self.real)
 
         # Cycle consistency training
         self.loss_cycle_S = self.criterion_cycle(self.recons_S, self.real_S)*lambda_cycle
         self.loss_cycle_T = self.criterion_cycle(self.recons_T, self.real_T)*lambda_cycle
 
-        self.loss_G = self.ident_S + self.loss_G_S + self.loss_cycle_S +\
+        self.loss_G = self.loss_ident_S + self.loss_G_S + self.loss_cycle_S +\
                       self.loss_ident_T + self.loss_G_T + self.loss_cycle_T
         self.loss_G.backward()
 
@@ -159,11 +164,12 @@ class InterpolationGAN(nn.Module):
         log_for_term = {'G_total': self.loss_G, 'D_total': self.loss_D_S+self.loss_D_T}                         # Terminal에 logging할 정보
 
         loss_log = {'G_total': self.loss_G, 'G_adversarial': self.loss_G_S+self.loss_G_T,                       # Visdom에 visualize할 loss graph
-                    'G_identity': self.ident_S+self.ident_T, 'G_cycle':self.loss_cycle_S + self.loss_cycle_T,
+                    'G_identity': self.loss_ident_S+self.loss_ident_T,
+                    'G_cycle':self.loss_cycle_S + self.loss_cycle_T,
                     'D_total': self.loss_D_S + self.loss_D_T}
 
-        img_log = { 'real_S':self.real_S[0], 'fake_T':self.fake_T[0], 'recons_S':self.recons_S[0],              # Visdom에 visualize할 images
-                    'real_T':self.real_T[0], 'fake_S':self.fake_S[0], 'recons_T':self.recons_T[0]}
+        img_log = { 'real_S':self.real_S[0], 'real_T':self.real_T[0], 'fake_S':self.fake_S[0],              # Visdom에 visualize할 images
+                    'fake_T':self.fake_T[0], 'recons_S':self.recons_S[0], 'recons_T':self.recons_T[0]}
 
         return log_for_term, loss_log, img_log
 

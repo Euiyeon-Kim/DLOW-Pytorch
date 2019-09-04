@@ -1,6 +1,6 @@
 import torch
 import random
-
+import numpy as np
 
 class ImageBuffer():
     def __init__(self, buf_size):
@@ -23,20 +23,20 @@ class ImageBuffer():
         if self.buf_size==0: # 미리 저장된 이미지가 없다면 input을 그대로 반환
             return imgs
 
-        imgs = []
+        response = []
         for img in imgs:
-            torch.unsqueeze(img.data, 0) # (input, dim) --> dim이 insert된 tensor를 return
+            img = torch.unsqueeze(img.data, 0) # (input, dim) --> dim이 insert된 tensor를 return
             if self.num_imgs < self.buf_size: # Buffer에 있는 data의 수가 buffer 크기보다 적음
                 self.num_imgs += 1
                 self.imgs.append(img)
+                response.append(img)
             else:
-                p = random.uniform(0, 1)
-                if p > 0.5:
+                if random.uniform(0, 1) > 0.5:
                     replace = random.randint(0, self.buf_size-1) # Buffer에서 제거할 image선택
-                    tmp = self.imgs[replace].clone
+                    tmp = self.imgs[replace].clone()
                     self.imgs[replace] = img
-                    imgs.append(tmp)
+                    response.append(tmp)
                 else:
-                    imgs.append(img)
-        imgs = torch.cat(imgs, 0) # img 이어붙이기
-        return imgs
+                    response.append(img)
+        response = torch.cat(response)
+        return response

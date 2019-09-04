@@ -2,16 +2,13 @@
     Have to open visdom server first
     'python -m visdom.server' or 'visdom'
 '''
-
 import sys
-import time
 import numpy as np
 
 from visdom import Visdom
 
 from . import utils
 
-sys.path.append("..")
 
 class Logger():
     def __init__(self, num_epochs, num_batches):
@@ -20,8 +17,6 @@ class Logger():
         self.num_batches = num_batches
         self.cur_epoch = 1
         self.cur_batch = 1
-        self.prev_time = time.time()
-        self.mean_period = 0
         self.terms = {}                                # Running average로 매 배치마다 terminal에 logging
         self.losses = {}                               # Running average로 매 epoch마다 visualize할 data
         self.visualize_losses = {}                     # Windows for visualized losses
@@ -33,11 +28,8 @@ class Logger():
             losses: visdom에 visualize할 losses dictionary
             images: visdom에 visualize할 images dictionary
         '''
-        self.mean_period += (time.time() - self.prev_time)
-        self.prev_time = time.time()
-
-        sys.stdout.write('\Epoch %03d/%03d [%04d/%04d] -- '\
-                         %(self.cur_epoch, self.num_epochs, self.cur_batch, self.num_batches))
+        sys.stdout.write('\nEpoch %03d/%03d [%04d/%04d] -- '%(self.cur_epoch, self.num_epochs, self.cur_batch, self.num_batches))
+        sys.stdout.flush()
 
         # Logging for terminal - for evey batch
         for idx, log_name in enumerate(terms.keys()):      # Index가 필요하므로 enumerate
@@ -49,6 +41,7 @@ class Logger():
                 sys.stdout.write('%s: %0.4f -- '%(log_name, self.terms[log_name]/self.cur_batch))
             else:
                 sys.stdout.write('%s: %0.4f | '%(log_name, self.terms[log_name]/self.cur_batch))
+            sys.stdout.flush()
 
         # Running average for visualized loss logging
         for loss_name, loss in losses.items():
@@ -76,6 +69,5 @@ class Logger():
 
             self.cur_epoch += 1
             self.cur_batch = 1
-            sys.stdout.write('\n')
         else:
             self.cur_batch += 1
