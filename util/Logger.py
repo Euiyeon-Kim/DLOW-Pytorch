@@ -11,9 +11,10 @@ from . import utils
 
 
 class Logger():
-    def __init__(self, num_epochs, num_batches):
+    def __init__(self, params, num_batches):
+        self.params = params
         self.viz = Visdom()
-        self.num_epochs = num_epochs
+        self.num_epochs = params.num_epochs
         self.num_batches = num_batches
         self.cur_epoch = 1
         self.cur_batch = 1
@@ -52,6 +53,8 @@ class Logger():
 
         # Visualized logging for images - every batch
         for img_name, tensor in images.items():
+            if self.cur_batch%self.params.image_saving_step==0:
+                utils.saveImg(tensor.data, self.params.output_dir, str(self.cur_epoch)+'_'+str(self.cur_batch)+'_'+img_name+'.jpg')
             if img_name not in self.visualize_images:       # 새로운 이미지 일 경우 윈도우 생성
                 self.visualize_images[img_name] = self.viz.image(utils.tensor2img(tensor.data), opts={'title':img_name})
             else:                                           # 이전 윈도우의 이미지 교체
@@ -61,10 +64,10 @@ class Logger():
         if self.cur_batch % self.num_batches == 0:
             for loss_name, loss in self.losses.items():
                 if loss_name not in self.visualize_losses:  # 새로운 loss일 경우 윈도우 생성
-                    self.visualize_losses[loss_name] = self.viz.line(X=np.array([self.cur_epoch]), Y=np.array([loss/self.num_batches]),
+                    self.visualize_losses[loss_name] = self.viz.line(X=np.array([self.cur_epoch]), Y=np.array([loss.item()/self.num_batches]),
                                                                      opts={'title':loss_name, 'xlabel':'epochs', 'ylabel':loss_name})
                 else:                                       # 이전 윈도우에 info append
-                    self.viz.line(X=np.array([self.cur_epoch]), Y=np.array([loss/self.num_batches]), win=self.visualize_losses[loss_name], update='append')
+                    self.viz.line(X=np.array([self.cur_epoch]), Y=np.array([loss.item()/self.num_batches]), win=self.visualize_losses[loss_name], update='append')
                 self.losses[loss_name] = 0.0
 
             self.cur_epoch += 1

@@ -161,14 +161,14 @@ class InterpolationGAN(nn.Module):
         self.optimizer_D.step()
 
     def get_data_for_logging(self):
-        log_for_term = {'G_total': self.loss_G, 'D_total': self.loss_D_S+self.loss_D_T}                         # Terminal에 logging할 정보
+        log_for_term = {'G_total': self.loss_G, 'D_total': self.loss_D_S+self.loss_D_T}                   # Terminal에 logging할 정보
 
-        loss_log = {'G_total': self.loss_G, 'G_adversarial': self.loss_G_S+self.loss_G_T,                       # Visdom에 visualize할 loss graph
+        loss_log = {'G_total': self.loss_G, 'G_adversarial': self.loss_G_S+self.loss_G_T,                 # Visdom에 visualize할 loss graph
                     'G_identity': self.loss_ident_S+self.loss_ident_T,
                     'G_cycle':self.loss_cycle_S + self.loss_cycle_T,
                     'D_total': self.loss_D_S + self.loss_D_T}
 
-        img_log = { 'real_S':self.real_S[0], 'real_T':self.real_T[0], 'fake_S':self.fake_S[0],              # Visdom에 visualize할 images
+        img_log = { 'real_S':self.real_S[0], 'real_T':self.real_T[0], 'fake_S':self.fake_S[0],            # Visdom에 visualize할 images
                     'fake_T':self.fake_T[0], 'recons_S':self.recons_S[0], 'recons_T':self.recons_T[0]}
 
         return log_for_term, loss_log, img_log

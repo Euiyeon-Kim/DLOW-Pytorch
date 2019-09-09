@@ -2,6 +2,7 @@ import os
 import json
 import shutil
 import numpy as np
+from PIL import Image
 
 import torch
 import torch.nn as nn
@@ -98,5 +99,13 @@ def tensor2img(tensor):
     return img.astype(np.uint8)
 
 
-
-
+def saveImg(tensor, output_dir, name): 
+    '''
+        tensor : 이미지 하나 크기의 tensor
+        name : 이미지 이름 (확장자 포함)
+    '''
+    img = tensor2img(tensor)
+    save = img.copy()
+    save = np.transpose(save, (1, 2, 0))
+    save = Image.fromarray(save.astype('uint8'))
+    save.save(os.path.join(output_dir, name))
