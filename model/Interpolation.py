@@ -11,7 +11,6 @@ from util import utils
 
 sys.path.append("..")
 
-
 class InterpolationGAN(nn.Module):
 
     def __init__(self, params, is_train=True):
