@@ -4,11 +4,17 @@ Gong, Rui, et al
 
 2019 CVPR Accepted
 
-### Table
+
+
+## Table
 
 + [Keywords](#Keywords)
-+ [Problem definition](#Problem-Definition-Unsupervised-domain-adaptation)
-+ [Previous works](#Previous Works - Pixel-level Domain adaptation)
++ [Problem definition](#problem-definition---unsupervised-domain-adaptation)
++ [Previous works](#previous-works)
+  + [Adversarial domain adaptation]()
++ [Main idea](#main-idea)
++ [Model architecture](#proposed-architecture)
++ [Experiments](#experiments)
 
 
 
@@ -19,6 +25,8 @@ Gong, Rui, et al
 + Feature interpolation
 + Domain adaptation
 + Image translation
+
+
 
 
 
@@ -40,15 +48,39 @@ Unsupervised domain adaptation을 사용하면 GTA5 dataset과 같이 렌더링 
 
 
 
+
+
 ## Previous works
 
-Unsupervised domain adaptation에서는
+### 1. Pixel-level domain adaptation
+
+![image-Pixel_level_DA](./img/Pixel_level_DA.png)
+
+Pixel-level domain adaptation은 style transfer model을 기반으로 한다.
+
+먼저 Source dataset의 distribution을 __style transfer model__ 및 __discriminator__를 사용하여 Target dataset의 distribution으로 변경한다.
+
+이 때 Target dataset의 distribution으로 옮겨간 Source dataset은 label을 가지고 있으므로, 일반적인 딥러닝 모델처럼 __Feature extractor__와 __task model__이 주어진 task를 잘 수행할 수 있도록 학습시킬 수 있다.
+
+학습을 마치면, __Feature extractor__와 __task model__은 Target dataset의 distribution에서 task를 수행하는 방법을 학습했으므로, Target dataset에서도 task를 수행할 수 있다.
 
 
 
+### 2. Adversarial domain adaptation
+
+![image-Adversarial_DA](./img/Adversarial_DA.png)
+
+위의 모델은 가장 기본적인 adversarial domain adaptation모델이라고 할 수 있다.
+
+__Discriminator__와 __feature extractor__는 Source dataset과 Target dataset에서 동일한 distribution의 feature를 추출하는 방법을 학습하고,
+
+__Task model__은 해당 feature distribution에서 주어진 task를 잘 수행하는 방법을 학습한다.
+
+pixel-level domain adaptation과 마찬가지로, 학습을 마치면 __Feature extractor__와 __task model__은 Target dataset의 distribution에서 task를 수행할 수 있게 된다.
 
 
-### Contribution
+
+## Main idea
 
 + Intermediate domain에 해당하는 이미지를 생성할 수 있다
 
@@ -56,9 +88,9 @@ Unsupervised domain adaptation에서는
 
   
 
-### Proposed Architecture
+## Proposed Atchitecture
 
-#####  Overall architecture
+### Overall Architecture
 
 ![image-Overall_architexture](./img/Overall_architecture.png)
 
@@ -76,11 +108,9 @@ Domain adaptation에서
 
 
 
-### Results
+### Experiments
 
 
-
-### Related work
 
 
 
