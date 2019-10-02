@@ -7,14 +7,14 @@ Gong, Rui, et al
 ### Table
 
 + [Keywords](#Keywords)
-+ [Problem definition](#Unsupervised Domain adaptation이란)
++ [Problem definition](#Problem-Definition-Unsupervised-domain-adaptation)
 + [Previous works](#Previous Works - Pixel-level Domain adaptation)
 
 
 
 
 
-### Keywords
+## Keywords
 
 + Feature interpolation
 + Domain adaptation
@@ -22,7 +22,7 @@ Gong, Rui, et al
 
 
 
-### Unsupervised Domain adaptation이란
+## Problem Definition - Unsupervised domain adaptation
 
 딥러닝은 기본적으로 Train에 사용한 데이터의 분포가 Inference시 사용할 데이터의 분포를 포함한다고 가정하며, 이러한 상황에서 훈련시킨 모델이 가장 잘 동작한다. 
 
@@ -40,7 +40,7 @@ Unsupervised domain adaptation을 사용하면 GTA5 dataset과 같이 렌더링 
 
 
 
-### Previous Works - Pixel-level Domain adaptation
+## Previous works
 
 Unsupervised domain adaptation에서는
 
