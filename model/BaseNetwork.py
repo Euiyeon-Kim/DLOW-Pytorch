@@ -5,7 +5,6 @@ import torch.nn.functional as F
 class ResBlock(nn.Module):
     def __init__(self, input_nc, use_dropout):
         super(ResBlock, self).__init__()
-
         res_block = [
             nn.ReflectionPad2d(1),
             nn.Conv2d(input_nc, input_nc, 3),
@@ -21,7 +20,6 @@ class ResBlock(nn.Module):
             nn.Conv2d(input_nc, input_nc, 3),
             nn.InstanceNorm2d(input_nc)
         ]
-
         self.res_block = nn.Sequential(*res_block)
 
     def forward(self, inputs):
@@ -32,7 +30,6 @@ class ResBlock(nn.Module):
 class Generator(nn.Module):
     def __init__(self, input_nc, output_nc, use_dropout=False, n_res_blocks=9):
         super(Generator, self).__init__()
-
         # Initial convolution block       
         model = [   nn.ReflectionPad2d(3),
                     nn.Conv2d(input_nc, 64, 7),
@@ -107,4 +104,3 @@ class Discriminator(nn.Module):
         # Average pooling and flatten
         x = F.avg_pool2d(x, x.size()[2:]).view(x.size()[0], -1)
         return torch.squeeze(x, 0)
-

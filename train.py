@@ -1,11 +1,13 @@
 import argparse
 import time
 import sys
+import os
 
 import torch
 
 from data import DataLoader
 from util.Logger import Logger
+from util.utils import*
 from model.Interpolation import InterpolationGAN
 
 parser = argparse.ArgumentParser()
@@ -53,6 +55,10 @@ if __name__ == "__main__":
 
     params = parser.parse_args()
     
+    # Checkpoint directory
+    if not os.path.isdir(params.checkpoint_dir):
+        os.mkdir(params.checkpoint_dir)
+
     # GPU 사용 가능 여부 확인
     params.cuda = torch.cuda.is_available()
 
@@ -85,7 +91,15 @@ if __name__ == "__main__":
             term_log, loss_log, img_log = interpolationGAN.get_data_for_logging()
             logger.log(term_log, loss_log, img_log)
 
-
+    save_checkpoint({'epoch': epoch+1,
+                    'G_S_state_dict': interpolationGAN.G_S.state_dict(),
+                    'G_T_state_dict': interpolationGAN.G_T.state_dict(),
+                    'D_S_state_dict': interpolationGAN.D_S.state_dict(),
+                    'D_T_state_dict': interpolationGAN.D_T.state_dict(),
+                    'G_optimizer': interpolationGAN.optimizer_G.state_dict(),
+                    'D_optimizer': interpolationGAN.optimizer_D.state_dict()},
+                    is_best=True,
+                    checkpoint_path=params.checkpoint_path)
 
 
 

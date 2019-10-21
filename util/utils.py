@@ -8,42 +8,42 @@ import torch
 import torch.nn as nn
 from torch.optim import lr_scheduler
 
-
 def save_dict_to_json(d, json_path): # d=dictionary
     with open(json_path, 'w') as f:
         d = {k: float(v) for k, v in d.items()}
         json.dump(d, f, indent=4)
-
+   
 
 def save_checkpoint(state, is_best, checkpoint_path):
     file_path = os.path.join(checkpoint_path, 'last.pth.tar')
-
+    
     if not os.path.exists(checkpoint_path):
         os.mkdir(checkpoint_path)
 
     torch.save(state, file_path) # Save checkpoint
-
-    if is_best: # If results was best, save checkpoint at best.pth.tar
+    '''
+        if is_best: # If results was best, save checkpoint at best.pth.tar
         shutil.copyfile(file_path, os.path.join(checkpoint_path, 'best.pth.tar'))
+    '''
 
 
-def load_checkpoint(checkpoint_path, S2T, T2S, D_S, D_T, G_paramsimizer=None, D_paramsimizer=None):
+def load_checkpoint(checkpoint_path, G_S, G_T, D_S, D_T, G_optimizer=None, D_optimizer=None):
     if not os.path.exists(checkpoint_path):
         raise ("Checkpoint doesn't exist at {}".format(checkpoint_path))
 
     checkpoint = torch.load(checkpoint_path)
     # state_dict : model의 learnable parameter 상태를 dictionary로 표현
     # layer name : parameter tensor의 형태
-    S2T.load_state_dict(checkpoint['S2T_state_dict'])
-    T2S.load_state_dict(checkpoint['T2S_state_dict'])
+    G_S.load_state_dict(checkpoint['G_S_state_dict'])
+    G_T.load_state_dict(checkpoint['G_T_state_dict'])
     D_S.load_state_dict(checkpoint['D_S_state_dict'])
     D_T.load_state_dict(checkpoint['D_T_state_dict'])
 
-    if G_paramsimizer:
-        G_paramsimizer.load_state_dict(checkpoint['G_paramsimizer_state_dict'])
-    if D_paramsimizer:
-        D_paramsimizer.load_state_dict(checkpoint['D_paramsimizer_state_dict'])
-
+    if G_optimizer:
+        G_optimizer.load_state_dict(checkpoint['G_paramsimizer_state_dict'])
+    if D_optimizer:
+        G_optimizer.load_state_dict(checkpoint['D_paramsimizer_state_dict'])
+        
     return checkpoint
 
 

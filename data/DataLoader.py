@@ -59,7 +59,6 @@ def get_transformer(H, W):
         transforms.ToTensor() --> Tensor의 범위가 [0, 1]
         transfroms.Normarlize((0.5, ), (0.5, ))는 [0, 1] --> [-1, 1]로 변환
     '''
-
     S_transformer = transforms.Compose([
         transforms.Resize((H, W)),
         transforms.RandomHorizontalFlip(),
