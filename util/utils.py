@@ -7,6 +7,7 @@ from PIL import Image
 import torch
 import torch.nn as nn
 from torch.optim import lr_scheduler
+from torch.distributions.beta import Beta
 
 def save_dict_to_json(d, json_path): # d=dictionary
     with open(json_path, 'w') as f:
@@ -48,7 +49,6 @@ def load_checkpoint(checkpoint_path, G_S, G_T, D_S, D_T, G_optimizer=None, D_opt
 
 
 def init_weights(network, init_type='normal', init_gain=0.02):
-
     def actual_init(model):
         classname = model.__class__.__name__
         if hasattr(model, 'weight') and (classname.find('Conv') != -1 or classname.find('Linear') != -1):
@@ -66,8 +66,9 @@ def init_weights(network, init_type='normal', init_gain=0.02):
         elif classname.find('BatchNorm2d') != -1:
             nn.init.normal_(model.weight.data, 1.0, init_gain)
             nn.init.constant_(model.bias.data, 0.0)
-
+    
     network.apply(actual_init)
+
 
 # Referenced https://github.com/junyanz/pytorch-CycleGAN-and-pix2pix/blob/master/models/networks.py
 def get_scheduler(paramsimizer, args):
@@ -109,3 +110,12 @@ def saveImg(tensor, output_dir, name):
     save = np.transpose(save, (1, 2, 0))
     save = Image.fromarray(save.astype('uint8'))
     save.save(os.path.join(output_dir, name))
+
+
+def get_domainess(cur_iter, total_iter):
+    alpha = np.exp((cur_iter - (0.5 * total_iter)) / (0.25 * total_iter))
+    distribution = Beta(alpha, 1)
+    return distribution.sample()
+
+if __name__=="__main__":
+    print(get_domainess(1, 1))
