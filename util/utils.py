@@ -116,6 +116,3 @@ def get_domainess(cur_iter, total_iter):
     alpha = np.exp((cur_iter - (0.5 * total_iter)) / (0.25 * total_iter))
     distribution = Beta(alpha, 1)
     return distribution.sample()
-
-if __name__=="__main__":
-    print(get_domainess(1, 1))

@@ -11,11 +11,12 @@ from util import utils
 
 sys.path.append("..")
 
-class InterpolationGAN(nn.Module):
+class AugmentedCycleGAN(nn.Module):
 
     def __init__(self, params, is_train=True):
-        super(InterpolationGAN, self).__init__()
+        super(AugmentedCycleGAN, self).__init__()
         self.params = params
+        
         # Device 설정
         if params.cuda: # 후에 multi-GPU coding할 수 있으면 적용
             self.device = torch.device('cuda:{}'.format(params.gpu_id)) 
@@ -23,8 +24,10 @@ class InterpolationGAN(nn.Module):
             self.device = torch.device('cpu')
 
         # Generator 생성 및 초기화
-        self.G_S = Base.Generator(params.T_nc, params.S_nc, params.use_dropout, params.n_res_blocks)  # T를 S로 변환하는 Generator
-        self.G_T = Base.Generator(params.S_nc, params.T_nc, params.use_dropout, params.n_res_blocks)  # S를 T로 변환하는 Generator
+        self.G_S = Base.Stoch_Generator(params.nlatent, params.T_nc, params.S_nc, params.ngf, 
+                                        params.use_dropout, params.n_res_blocks)  # T를 S로 변환하는 Generator
+        self.G_T = Base.Stoch_Generator(params.nlatent, params.S_nc, params.T_nc, params.ngf, 
+                                        params.use_dropout, params.n_res_blocks)  # S를 T로 변환하는 Generator
         if params.cuda:
             self.G_S.cuda()
             self.G_T.cuda()
@@ -33,8 +36,8 @@ class InterpolationGAN(nn.Module):
 
         # Discriminator 생성 및 초기화
         if is_train:
-            self.D_S = Base.Discriminator(params.S_nc)  # domain S를 구분하는 Discriminator
-            self.D_T = Base.Discriminator(params.T_nc)  # domain T를 구분하는 Discriminator
+            self.D_S = Base.Stoch_Discriminator(params.S_nc)  # domain S를 구분하는 Discriminator
+            self.D_T = Base.Stoch_Discriminator(params.T_nc)  # domain T를 구분하는 Discriminator
             if params.cuda:
                 self.D_S.cuda()
                 self.D_T.cuda()
@@ -50,7 +53,6 @@ class InterpolationGAN(nn.Module):
             self.loss_names = ['G_S', 'D_S', 'Cycle_S', 'Ident_S', 'G_T', 'D_T', 'Cycle_T', 'Ident_T']
         else:
             self.model_names = ['G_S', 'G_T']
-        # Visual name을 넣을 것인가 말 것인가.
 
         # Losses 및 Optimizer 생성
         if is_train:
@@ -67,7 +69,6 @@ class InterpolationGAN(nn.Module):
                                                 lr=params.lr, betas=(params.beta, 0.999))
             self.optimizer_D = torch.optim.Adam(itertools.chain(self.D_S.parameters(), self.D_T.parameters()),
                                                 lr=params.lr, betas=(params.beta, 0.999))
-
             # 필요에 따라 LR schedulers 추가 선언
 
     def set_input(self, input):
@@ -76,7 +77,6 @@ class InterpolationGAN(nn.Module):
         '''
         self.real_S = Variable(input['S_img'].to(self.device))
         self.real_T = Variable(input['T_img'].to(self.device))
-
 
     def set_requires_grad(self, model_list, requires_grad=False):
         """
@@ -171,14 +171,4 @@ class InterpolationGAN(nn.Module):
                     'fake_T':self.fake_T[0], 'recons_S':self.recons_S[0], 'recons_T':self.recons_T[0]}
 
         return log_for_term, loss_log, img_log
-
-
-
-
-
-
-
-
-
-
 

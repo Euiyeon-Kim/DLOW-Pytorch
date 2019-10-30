@@ -8,7 +8,9 @@ import torch
 from data import DataLoader
 from util.Logger import Logger
 from util.utils import*
-from model.Interpolation import InterpolationGAN
+from model.CycleGAN import CycleGAN
+from model.AugmentedCycleGAN import AugmentedCycleGAN
+from model.InterpolationGAN import InterpolationGAN
 
 parser = argparse.ArgumentParser()
 
@@ -19,7 +21,7 @@ parser.add_argument('--start_epoch', type=int, default=0, help="Start point to t
 parser.add_argument('--num_epochs', type=int, default=100, help="# of epoch to train")
 parser.add_argument('--num_workers', type=int, default=4, help="# of cpu threads to use during batch generation")
 parser.add_argument('--save_summary_steps', type=int, default=100, help="# of iter to save current status")
-parser.add_argument('--buf_size', type=int, default=50, help="Buffer size to save previous generated images")
+parser.add_argument('--buf_size', type=int, default=20, help="Buffer size to save previous generated images")
 parser.add_argument('--image_saving_step', type=int, default=10, help="Save results on every # iters")
 
 # Related to dataset
@@ -41,7 +43,7 @@ parser.add_argument('--beta', type=float, default=0.5, help="Used with Adam opti
 parser.add_argument('--n_res_blocks', type=int, default=9, help="Number of residual blocks used to make G")
 parser.add_argument('--lambda_cycle', type=float, default=10, help="Lambda for cycle consistency loss")
 parser.add_argument('--lambda_ident', type=float, default=10, help="Lambda for identity loss")
-parser.add_argument('--batch_size', type=int, default=1, help="Batch size")
+parser.add_argument('--batch_size', type=int, default=4, help="Batch size")
 parser.add_argument('--use_dropout', type=bool, default=False, help="Wether to use dropout or not")
 
 # Related to learning rate policy
@@ -49,6 +51,12 @@ parser.add_argument('--lr_policy', type=str, default='linear', help="Learning ra
 parser.add_argument('--start_decay', type=int, default=100, help="# of iter at stating learning rate decay")
 parser.add_argument('--decay_cycle', type=int, default=100, help="# of iter to linearly decay learning rate")
 parser.add_argument('--lr_decay_iters', type=int, default=50, help="Multiply by gamma every lr_decay_iters iterations")
+
+# Related to model architecture
+parser.add_argument('--ngf', type=int, default=64, help='# of generator filters in first conv layer')
+parser.add_argument('--ndf', type=int, default=64, help='# of discriminator filters in first conv layer')
+parser.add_argument('--nef', type=int, default=32, help='# of encoder filters in first conv layer')
+parser.add_argument('--nlatent', type=int, default=16, help="Latent code dimension")
 
 
 if __name__ == "__main__":
@@ -63,7 +71,7 @@ if __name__ == "__main__":
     params.cuda = torch.cuda.is_available()
 
     # Model 선언
-    interpolationGAN = InterpolationGAN(params)
+    cycleGAN = AugmentedCycleGAN(params)
 
     # 데이터 로딩
     sys.stdout.write("Loading the data...")
@@ -86,20 +94,20 @@ if __name__ == "__main__":
             iter_start_time = time.time()       # How long does it takes for 1 iter
 
             # Actual training
-            interpolationGAN.set_input(batch)
-            interpolationGAN.train()
-            term_log, loss_log, img_log = interpolationGAN.get_data_for_logging()
+            cycleGAN.set_input(batch)
+            cycleGAN.train()
+            term_log, loss_log, img_log = cycleGAN.get_data_for_logging()
             logger.log(term_log, loss_log, img_log)
 
-    save_checkpoint({'epoch': epoch+1,
-                    'G_S_state_dict': interpolationGAN.G_S.state_dict(),
-                    'G_T_state_dict': interpolationGAN.G_T.state_dict(),
-                    'D_S_state_dict': interpolationGAN.D_S.state_dict(),
-                    'D_T_state_dict': interpolationGAN.D_T.state_dict(),
-                    'G_optimizer': interpolationGAN.optimizer_G.state_dict(),
-                    'D_optimizer': interpolationGAN.optimizer_D.state_dict()},
+    save_checkpoint({   'epoch': epoch+1,
+                        'G_S_state_dict': cycleGAN.G_S.state_dict(),
+                        'G_T_state_dict': cycleGAN.G_T.state_dict(),
+                        'D_S_state_dict': cycleGAN.D_S.state_dict(),
+                        'D_T_state_dict': cycleGAN.D_T.state_dict(),
+                        'G_optimizer': cycleGAN.optimizer_G.state_dict(),
+                        'D_optimizer': cycleGAN.optimizer_D.state_dict()    },
                     is_best=True,
-                    checkpoint_path=params.checkpoint_path)
+                    checkpoint_path=params.checkpoint_path  )
 
 
 

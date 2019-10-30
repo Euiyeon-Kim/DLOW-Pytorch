@@ -9,7 +9,6 @@ from visdom import Visdom
 
 from . import utils
 
-
 class Logger():
     def __init__(self, params, num_batches):
         self.params = params
