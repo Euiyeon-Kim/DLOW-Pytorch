@@ -1,3 +1,4 @@
+import os
 import sys
 import itertools
 
@@ -168,6 +169,25 @@ class CycleGAN(nn.Module):
                     'fake_T':self.fake_T[0], 'recons_S':self.recons_S[0], 'recons_T':self.recons_T[0]}
 
         return log_for_term, loss_log, img_log
+
+    def save(self, ckp_name):
+        path = os.path.join(self.params.checkpoint_dir, ckp_name)
+        checkpoint = {   'G_S': self.G_S.state_dict(),
+                         'G_T': self.G_T.state_dict(),
+                         'D_S': self.D_S.state_dict(),
+                         'D_T': self.D_T.state_dict(),
+                         'G_optimizer': self.optimizer_G.state_dict(),
+                         'D_optimizer': self.optimizer_D.state_dict()    }
+        torch.save(checkpoint, path)
+
+    def load(self, ckp_path):
+        checkpoint = torch.load(ckp_path)
+        self.G_S.load_state_dict(checkpoint['G_S'])
+        self.G_T.load_state_dict(checkpoint['G_T'])
+        self.D_S.load_state_dict(checkpoint['D_S'])
+        self.D_T.load_state_dict(checkpoint['D_T'])
+        self.optimizer_G.load_state_dict(checkpoint['G_optimizer'])
+        self.optimizer_D.load_state_dict(checkpoint['D_optimizer'])
 
 
 

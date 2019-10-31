@@ -1,3 +1,4 @@
+import os
 import sys
 import itertools
 
@@ -171,4 +172,13 @@ class AugmentedCycleGAN(nn.Module):
                     'fake_T':self.fake_T[0], 'recons_S':self.recons_S[0], 'recons_T':self.recons_T[0]}
 
         return log_for_term, loss_log, img_log
+
+    def save(self, ckp_name):
+        path = os.path.join(self.params.checkpoint_dir, ckp_name)
+        checkpoint = {}
+        torch.save(checkpoint, path)
+
+    def load(self, path):
+        checkpoint = torch.load(path)
+        
 

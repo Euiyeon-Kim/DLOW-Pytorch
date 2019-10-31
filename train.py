@@ -25,7 +25,6 @@ parser.add_argument('--buf_size', type=int, default=20, help="Buffer size to sav
 parser.add_argument('--image_saving_step', type=int, default=10, help="Save results on every # iters")
 
 # Related to dataset
-parser.add_argument('--root_dir', type=str, default='/mnt/hdd0/datasets/DLOW', help="Where to find dataset")
 parser.add_argument('--S_nc', type=int, default=3, help="Source dataset's channels")
 parser.add_argument('--T_nc', type=int, default=3, help="Target dataset's channels")
 parser.add_argument('--resize_W', type=int, default=400, help='Resize data to have this width')
@@ -33,6 +32,7 @@ parser.add_argument('--resize_H', type=int, default=300, help='Resize data to ha
 parser.add_argument('--fixed_pair', type=bool, default=True, help='Maintain Source dataset and Target dataset\'s pair')
 
 # Related to directory
+parser.add_argument('--root_dir', type=str, default='/mnt/hdd0/datasets/DLOW', help="Where to find dataset")
 parser.add_argument('--checkpoint_dir', default='./model/checkpoint', help="Directory to save model")
 parser.add_argument('--restore_filename', default=None, help="Name of the file in --checkpoint_dir")
 parser.add_argument('--output_dir', default='/mnt/hdd0/outputs/DLOW', help="Directory to save outputs")
@@ -71,7 +71,7 @@ if __name__ == "__main__":
     params.cuda = torch.cuda.is_available()
 
     # Model 선언
-    cycleGAN = AugmentedCycleGAN(params)
+    model = AugmentedCycleGAN(params)
 
     # 데이터 로딩
     sys.stdout.write("Loading the data...")
@@ -94,20 +94,14 @@ if __name__ == "__main__":
             iter_start_time = time.time()       # How long does it takes for 1 iter
 
             # Actual training
-            cycleGAN.set_input(batch)
-            cycleGAN.train()
-            term_log, loss_log, img_log = cycleGAN.get_data_for_logging()
+            model.set_input(batch)
+            model.train()
+            term_log, loss_log, img_log = model.get_data_for_logging()
             logger.log(term_log, loss_log, img_log)
+    
+    model.save('last.pth.tar')
 
-    save_checkpoint({   'epoch': epoch+1,
-                        'G_S_state_dict': cycleGAN.G_S.state_dict(),
-                        'G_T_state_dict': cycleGAN.G_T.state_dict(),
-                        'D_S_state_dict': cycleGAN.D_S.state_dict(),
-                        'D_T_state_dict': cycleGAN.D_T.state_dict(),
-                        'G_optimizer': cycleGAN.optimizer_G.state_dict(),
-                        'D_optimizer': cycleGAN.optimizer_D.state_dict()    },
-                    is_best=True,
-                    checkpoint_path=params.checkpoint_path  )
+   
 
 
 

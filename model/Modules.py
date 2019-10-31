@@ -106,10 +106,11 @@ class CondInstanceNorm(TwoInputModule):
         """
         super(CondInstanceNorm, self).__init__()
         self.eps = eps
-        self.shift_conv = nn.Sequential(    nn.Conv2d(z_dim, x_dim, kernel_size=1, padding=0, bias=True),
-                                            nn.ReLU(True)   )
+        # Train scaling and shifting parameters
         self.scale_conv = nn.Sequential(    nn.Conv2d(z_dim, x_dim, kernel_size=1, padding=0, bias=True),
                                             nn.ReLU(True)   )
+        self.shift_conv = nn.Sequential(    nn.Conv2d(z_dim, x_dim, kernel_size=1, padding=0, bias=True),
+                                            nn.ReLU(True)   ) 
 
     def forward(self, input, noise):
         '''
@@ -118,11 +119,14 @@ class CondInstanceNorm(TwoInputModule):
         '''
         shift = self.shift_conv.forward(noise)
         scale = self.scale_conv.forward(noise)
-        size = input.size()
+        
+        size = input.size() # batch, channel, h, w
         x_reshaped = input.view(size[0], size[1], size[2]*size[3])
-        mean = x_reshaped.mean(2, keepdim=True)
-        var = x_reshaped.var(2, keepdim=True)
-        std =  torch.rsqrt(var + self.eps)
+        
+        mean = x_reshaped.mean(2, keepdim=True)     # Channel-wise mean
+        var = x_reshaped.var(2, keepdim=True)       # Channel-wise variance
+        std =  torch.rsqrt(var + self.eps)  
+        
         norm_features = ((x_reshaped - mean) * std).view(*size)
         output = norm_features * scale + shift
         return output
