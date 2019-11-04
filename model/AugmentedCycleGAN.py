@@ -35,28 +35,49 @@ class AugmentedCycleGAN(nn.Module):
         utils.init_weights(self.G_S)
         utils.init_weights(self.G_T)
 
-        # Discriminator 생성 및 초기화
         if is_train:
-            self.D_S = Base.Stoch_Discriminator(params.S_nc)  # domain S를 구분하는 Discriminator
-            self.D_T = Base.Stoch_Discriminator(params.T_nc)  # domain T를 구분하는 Discriminator
+            # Discriminator 생성 및 초기화
+            self.D_S = Base.Stoch_Discriminator(params.nlatent, params.S_nc, params.ndf)  # domain S를 구분하는 Discriminator
+            self.D_T = Base.Stoch_Discriminator(params.nlatent, params.T_nc, params.ndf)  # domain T를 구분하는 Discriminator
+           
+            # Encoder 생성 및 초기화 / Encoder는 S와 T모두를 받아서 둘의 차이를 인코딩
+            enc_input_nc = params.S_nc + params.T_nc
+            self.Encoder = Base.LatentEncoder(params.nlatent, enc_input_nc, params.nef, norm='batch')
+            
+            # Latent code discriminator 생성 및 초기화
+            self.D_Z = Base.LatentDiscriminator(params.nlatent, params.ndf)
+            
             if params.cuda:
                 self.D_S.cuda()
                 self.D_T.cuda()
+                self.D_Z.cuda()
+                self.Encoder.cuda()
+                
             utils.init_weights(self.D_S)
             utils.init_weights(self.D_T)
+            utils.init_weights(self.D_Z)
+            utils.init_weights(self.Encoder)
+
             Tensor = torch.cuda.FloatTensor if params.cuda else torch.Tensor
             self.real = Variable(Tensor(params.batch_size).fill_(1.0), requires_grad=False)
             self.fake = Variable(Tensor(params.batch_size).fill_(0.0), requires_grad=False)
 
-        # Model 구성요소 이름 저장
-        if is_train:
-            self.model_names = ['G_S', 'G_T', 'D_S', 'D_T']
-            self.loss_names = ['G_S', 'D_S', 'Cycle_S', 'Ident_S', 'G_T', 'D_T', 'Cycle_T', 'Ident_T']
-        else:
-            self.model_names = ['G_S', 'G_T']
+            # Losses 및 Optimizer 생성
 
-        # Losses 및 Optimizer 생성
-        if is_train:
+            self.optimizer_G_A = torch.optim.Adam(self.netG_B_A.parameters(),
+                                              lr=opt.lr, betas=(opt.beta1, 0.999))
+            self.optimizer_G_B = torch.optim.Adam(itertools.chain(self.netG_A_B.parameters(),
+                                                              self.netE_B.parameters()),
+                                              lr=opt.lr, betas=(opt.beta1, 0.999))
+            self.optimizer_D_A = torch.optim.Adam(self.netD_A.parameters(),
+                                              lr=opt.lr/5., betas=(opt.beta1, 0.999))
+            self.optimizer_D_B = torch.optim.Adam(itertools.chain(self.netD_B.parameters(),
+                                                              self.netD_z_B.parameters(),
+                                                              ),
+                                              lr=opt.lr/5., betas=(opt.beta1, 0.999))
+            self.criterionGAN = functools.partial(criterion_GAN, use_sigmoid=opt.use_sigmoid)
+            self.criterionCycle = F.l1_loss
+
             assert(params.S_nc == params.T_nc)          # Identity Loss를 사용하려면 필요
             # Buffers to save previously generated images
             self.save_fake_S = ImageBuffer(params.buf_size)
@@ -71,6 +92,13 @@ class AugmentedCycleGAN(nn.Module):
             self.optimizer_D = torch.optim.Adam(itertools.chain(self.D_S.parameters(), self.D_T.parameters()),
                                                 lr=params.lr, betas=(params.beta, 0.999))
             # 필요에 따라 LR schedulers 추가 선언
+
+        # Model 구성요소 이름 저장
+        if is_train:
+            self.model_names = ['G_S', 'G_T', 'D_S', 'D_T', 'D_Z', 'Encoder']
+            self.loss_names = ['G_S', 'D_S', 'Cycle_S', 'Ident_S', 'G_T', 'D_T', 'Cycle_T', 'Ident_T']
+        else:
+            self.model_names = ['G_S', 'G_T']
 
     def set_input(self, input):
         ''' 

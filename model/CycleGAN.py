@@ -41,19 +41,12 @@ class CycleGAN(nn.Module):
                 self.D_T.cuda()
             utils.init_weights(self.D_S)
             utils.init_weights(self.D_T)
+            
             Tensor = torch.cuda.FloatTensor if params.cuda else torch.Tensor
             self.real = Variable(Tensor(params.batch_size).fill_(1.0), requires_grad=False)
             self.fake = Variable(Tensor(params.batch_size).fill_(0.0), requires_grad=False)
 
-        # Model 구성요소 이름 저장
-        if is_train:
-            self.model_names = ['G_S', 'G_T', 'D_S', 'D_T']
-            self.loss_names = ['G_S', 'D_S', 'Cycle_S', 'Ident_S', 'G_T', 'D_T', 'Cycle_T', 'Ident_T']
-        else:
-            self.model_names = ['G_S', 'G_T']
-
-        # Losses 및 Optimizer 생성
-        if is_train:
+            # Losses 및 Optimizer 생성
             assert(params.S_nc == params.T_nc)          # Identity Loss를 사용하려면 필요
             # Buffers to save previously generated images
             self.save_fake_S = ImageBuffer(params.buf_size)
@@ -68,6 +61,14 @@ class CycleGAN(nn.Module):
             self.optimizer_D = torch.optim.Adam(itertools.chain(self.D_S.parameters(), self.D_T.parameters()),
                                                 lr=params.lr, betas=(params.beta, 0.999))
             # 필요에 따라 LR schedulers 추가 선언
+
+        # Model 구성요소 이름 저장
+        if is_train:
+            self.model_names = ['G_S', 'G_T', 'D_S', 'D_T']
+            self.loss_names = ['G_S', 'D_S', 'Cycle_S', 'Ident_S', 'G_T', 'D_T', 'Cycle_T', 'Ident_T']
+        else:
+            self.model_names = ['G_S', 'G_T']
+
 
     def set_input(self, input):
         ''' 

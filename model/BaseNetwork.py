@@ -7,6 +7,10 @@ from .Modules import*
 
 sys.path.append("..")
 
+''' 
+    Networks for CycleGAN 
+    Generator / Discriminator
+'''
 class Generator(nn.Module):
     def __init__(self, input_nc, output_nc, ngf, use_dropout=False, n_res_blocks=9):
         super(Generator, self).__init__()
@@ -85,7 +89,10 @@ class Discriminator(nn.Module):
         x = F.avg_pool2d(x, x.size()[2:]).view(x.size()[0], -1)
         return torch.squeeze(x, 0)
 
-
+'''
+    Networks for AugmentedCycleGAN
+    Stochastic generator / Stochastic discriminator / Noise encoder / 
+'''
 class Stoch_Generator(nn.Module):
     def __init__(self, nlatent, input_nc, output_nc, ngf=64, use_dropout=False, n_blocks=9):
         super(Stoch_Generator, self).__init__()
@@ -134,7 +141,7 @@ class Stoch_Generator(nn.Module):
 
 
 class Stoch_Discriminator(nn.Module):
-    def __init__(self, nlatent, input_nc, ndf=64):
+    def __init__(self, nlatent, input_nc, ndf):
         """
         nlatent: number of channles in both latent codes (or one of them - depending on the model)
         input_nc: number of channels in input and output (assumes both inputs are concatenated)
@@ -214,9 +221,9 @@ class LatentEncoder(nn.Module):
         return (mu.view(mu.size(0), -1), logvar.view(logvar.size(0), -1))
 
 
-class DiscriminatorLatent(nn.Module):
+class LatentDiscriminator(nn.Module):
     def __init__(self, nlatent, ndf):
-        super(DiscriminatorLatent, self).__init__()
+        super(LatentDiscriminator, self).__init__()
 
         self.nlatent = nlatent
 

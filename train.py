@@ -1,8 +1,8 @@
+import threading
 import argparse
 import time
 import sys
 import os
-
 import torch
 
 from data import DataLoader
@@ -54,7 +54,7 @@ parser.add_argument('--lr_decay_iters', type=int, default=50, help="Multiply by 
 
 # Related to model architecture
 parser.add_argument('--ngf', type=int, default=64, help='# of generator filters in first conv layer')
-parser.add_argument('--ndf', type=int, default=64, help='# of discriminator filters in first conv layer')
+parser.add_argument('--ndf', type=int, default=32, help='# of discriminator filters in first conv layer')
 parser.add_argument('--nef', type=int, default=32, help='# of encoder filters in first conv layer')
 parser.add_argument('--nlatent', type=int, default=16, help="Latent code dimension")
 
@@ -62,7 +62,7 @@ parser.add_argument('--nlatent', type=int, default=16, help="Latent code dimensi
 if __name__ == "__main__":
 
     params = parser.parse_args()
-    
+
     # Checkpoint directory
     if not os.path.isdir(params.checkpoint_dir):
         os.mkdir(params.checkpoint_dir)

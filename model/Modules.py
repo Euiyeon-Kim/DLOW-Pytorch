@@ -157,7 +157,7 @@ class CINResnetBlock(TwoInputModule):
         conv_block += [nn.ReflectionPad2d(1)]
        
         conv_block += [nn.Conv2d(x_dim, x_dim, kernel_size=3, padding=0, bias=use_bias),
-                       InstanceNorm2d(x_dim, affine=True)]
+                       InstanceNorm(x_dim, affine=True)]
 
         return TwoInputSequential(*conv_block)
 
