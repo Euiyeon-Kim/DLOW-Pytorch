@@ -24,27 +24,16 @@ class CycleGAN(nn.Module):
             self.device = torch.device('cpu')
 
         # Generator 생성 및 초기화
-        self.G_S = Base.Generator(params.T_nc, params.S_nc, params.ngf, params.use_dropout, params.n_res_blocks)  # T를 S로 변환하는 Generator
-        self.G_T = Base.Generator(params.S_nc, params.T_nc, params.ngf, params.use_dropout, params.n_res_blocks)  # S를 T로 변환하는 Generator
-        if params.cuda:
-            self.G_S.cuda()
-            self.G_T.cuda()
-        utils.init_weights(self.G_S)
-        utils.init_weights(self.G_T)
+        self.G_S = Base.Generator(params.T_nc, params.S_nc, params.ngf, params.use_dropout, params.n_res_blocks, self.device)  # T를 S로 변환하는 Generator
+        self.G_T = Base.Generator(params.S_nc, params.T_nc, params.ngf, params.use_dropout, params.n_res_blocks, self.device)  # S를 T로 변환하는 Generator
 
         # Discriminator 생성 및 초기화
         if is_train:
-            self.D_S = Base.Discriminator(params.S_nc, params.ndf)  # domain S를 구분하는 Discriminator
-            self.D_T = Base.Discriminator(params.T_nc, params.ndf)  # domain T를 구분하는 Discriminator
-            if params.cuda:
-                self.D_S.cuda()
-                self.D_T.cuda()
-            utils.init_weights(self.D_S)
-            utils.init_weights(self.D_T)
+            self.D_S = Base.Discriminator(params.S_nc, params.ndf, self.device)  # domain S를 구분하는 Discriminator
+            self.D_T = Base.Discriminator(params.T_nc, params.ndf, self.device)  # domain T를 구분하는 Discriminator
             
-            Tensor = torch.cuda.FloatTensor if params.cuda else torch.Tensor
-            self.real = Variable(Tensor(params.batch_size).fill_(1.0), requires_grad=False)
-            self.fake = Variable(Tensor(params.batch_size).fill_(0.0), requires_grad=False)
+            self.real = Variable(torch.ones([params.batch_size, 1, 16, 23]).to(self.device), requires_grad=False)
+            self.fake = Variable(torch.zeros([params.batch_size, 1, 16, 23]).to(self.device), requires_grad=False)
 
             # Losses 및 Optimizer 생성
             assert(params.S_nc == params.T_nc)          # Identity Loss를 사용하려면 필요
@@ -61,14 +50,7 @@ class CycleGAN(nn.Module):
             self.optimizer_D = torch.optim.Adam(itertools.chain(self.D_S.parameters(), self.D_T.parameters()),
                                                 lr=params.lr, betas=(params.beta, 0.999))
             # 필요에 따라 LR schedulers 추가 선언
-
-        # Model 구성요소 이름 저장
-        if is_train:
-            self.model_names = ['G_S', 'G_T', 'D_S', 'D_T']
-            self.loss_names = ['G_S', 'D_S', 'Cycle_S', 'Ident_S', 'G_T', 'D_T', 'Cycle_T', 'Ident_T']
-        else:
-            self.model_names = ['G_S', 'G_T']
-
+            
 
     def set_input(self, input):
         ''' 

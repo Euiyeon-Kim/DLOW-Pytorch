@@ -12,7 +12,7 @@ sys.path.append("..")
     Generator / Discriminator
 '''
 class Generator(nn.Module):
-    def __init__(self, input_nc, output_nc, ngf, use_dropout=False, n_res_blocks=9):
+    def __init__(self, input_nc, output_nc, ngf, use_dropout=False, n_res_blocks=9, device='cpu'):
         super(Generator, self).__init__()
         # Initial convolution block       
         model = [    nn.ReflectionPad2d(3), # Reference from CycleGAN
@@ -32,7 +32,7 @@ class Generator(nn.Module):
 
         # Residual blocks
         for _ in range(n_res_blocks):
-            model += [ResBlock(in_features, use_dropout)]
+            model += [ ResBlock(in_features, use_dropout) ]
 
         # Upsampling
         out_features = in_features//2
@@ -49,54 +49,57 @@ class Generator(nn.Module):
                     nn.Tanh() ]
 
         self.model = nn.Sequential(*model)
+        self.to(device)
+        utils.init_weights(self)
 
     def forward(self, x):
         return self.model(x)
 
 
 class Discriminator(nn.Module):
-    def __init__(self, input_nc, ndf):
+    def __init__(self, input_nc, ndf, device):
         super(Discriminator, self).__init__()
+
+        norm_layer = InstanceNorm
 
         # A bunch of convolutions one after another
         model = [   nn.Conv2d(input_nc, ndf, 4, stride=2, padding=1),
                     nn.LeakyReLU(0.2, inplace=True) ]
 
         model += [  nn.Conv2d(ndf, ndf*2, 4, stride=2, padding=1),
-                    InstanceNorm(ndf*2), 
+                    norm_layer(ndf*2), 
                     nn.LeakyReLU(0.2, inplace=True) ]
 
         model += [  nn.Conv2d(ndf*2, ndf*4, 4, stride=2, padding=1),
-                    InstanceNorm(ndf*4), 
+                    norm_layer(ndf*4), 
                     nn.LeakyReLU(0.2, inplace=True) ]
 
-        model += [  nn.Conv2d(ndf*4, ndf*8, 4, padding=1),
-                    InstanceNorm(ndf*8), 
+        model += [  nn.Conv2d(ndf*4, ndf*8, 4, stride=2, padding=1),
+                    norm_layer(ndf*8), 
                     nn.LeakyReLU(0.2, inplace=True) ]
 
-        model += [  nn.Conv2d(ndf*8, ndf*8, 4, padding=1),
-                    InstanceNorm(ndf*8),
-                    nn.LeakyReLU(0.2, inplace=True) ]
+        model += [  nn.Conv2d(ndf*8, ndf*8, 4, stride=1, padding=1),
+                    norm_layer(ndf*8),
+                    nn.LeakyReLU(0.2, inplace=True) ]        
 
-        # FCN classification layer
+        # Return 1 channel prediction map
         model += [  nn.Conv2d(ndf*8, 1, 4, padding=1)   ]
 
         self.model = nn.Sequential(*model)
+        self.to(device)
+        utils.init_weights(self)
 
-    def forward(self, x):
-        x =  self.model(x)
-        # Average pooling and flatten
-        x = F.avg_pool2d(x, x.size()[2:]).view(x.size()[0], -1)
-        return torch.squeeze(x, 0)
+    def forward(self, x): # 크기 계산 잘 해봅시다
+        return self.model(x)
+
 
 '''
     Networks for AugmentedCycleGAN
-    Stochastic generator / Stochastic discriminator / Noise encoder / 
+    Stochastic generator / Latent encoder / 
 '''
 class Stoch_Generator(nn.Module):
-    def __init__(self, nlatent, input_nc, output_nc, ngf=64, use_dropout=False, n_blocks=9):
+    def __init__(self, nlatent, input_nc, output_nc, ngf=64, use_dropout=False, n_blocks=9, device='cpu'):
         super(Stoch_Generator, self).__init__()
-
         norm_layer = CondInstanceNorm
 
         model = [
@@ -132,56 +135,16 @@ class Stoch_Generator(nn.Module):
         ]
 
         self.model = TwoInputSequential(*model)
-
-    def forward(self, input, noise):
-        if len(self.gpu_ids)>1 and isinstance(input.data, torch.cuda.FloatTensor):
-            return nn.parallel.data_parallel(self.model, (input, noise), self.gpu_ids)
-        else:
-            return self.model(input, noise)
-
-
-class Stoch_Discriminator(nn.Module):
-    def __init__(self, nlatent, input_nc, ndf):
-        """
-        nlatent: number of channles in both latent codes (or one of them - depending on the model)
-        input_nc: number of channels in input and output (assumes both inputs are concatenated)
-        """
-        super(Stoch_Discriminator, self).__init__()
-
-        use_bias = True
-        norm_layer = nn.BatchNorm2d
-        kw = 4
-
-        sequence = [
-            nn.Conv2d(input_nc, ndf, kernel_size=kw, stride=2, padding=1, bias=True),
-            nn.LeakyReLU(0.2, True),
-
-            nn.Conv2d(ndf, 2*ndf, kernel_size=kw, stride=2, padding=1, bias=use_bias),
-            norm_layer(2*ndf, nlatent),
-            nn.LeakyReLU(0.2, True),
-
-            nn.Conv2d(2*ndf, 4*ndf,
-                      kernel_size=kw, stride=1, padding=1, bias=use_bias),
-            norm_layer(4*ndf, nlatent),
-            nn.LeakyReLU(0.2, True),
-
-            nn.Conv2d(4*ndf, 5*ndf,
-                      kernel_size=kw, stride=1, padding=1, bias=use_bias),
-            norm_layer(5*ndf, nlatent),
-            nn.LeakyReLU(0.2, True),
-
-            nn.Conv2d(5*ndf, 1, kernel_size=kw, stride=1, padding=1)
-        ]
-
-        self.model = TwoInputSequential(*sequence)
+        self.to(device)
+        utils.init_weights(self)
 
     def forward(self, input, noise):
         return self.model(input, noise)
 
 
-class LatentEncoder(nn.Module):
-    def __init__(self, nlatent, input_nc, nef, norm_layer):
-        super(LatentEncoder, self).__init__()
+class Latent_Encoder(nn.Module):
+    def __init__(self, nlatent, input_nc, nef, norm_layer, device):
+        super(Latent_Encoder, self).__init__()
         
         use_bias = False
         kw = 3
@@ -213,6 +176,8 @@ class LatentEncoder(nn.Module):
         # make sure we return mu and logvar for latent code normal distribution
         self.enc_mu = nn.Conv2d(8*nef, nlatent, kernel_size=1, stride=1, padding=0, bias=True)
         self.enc_logvar = nn.Conv2d(8*nef, nlatent, kernel_size=1, stride=1, padding=0, bias=True)
+        self.to(device)
+        utils.init_weights(self)
 
     def forward(self, input):
         conv_out = self.conv_modules(input)
@@ -221,9 +186,9 @@ class LatentEncoder(nn.Module):
         return (mu.view(mu.size(0), -1), logvar.view(logvar.size(0), -1))
 
 
-class LatentDiscriminator(nn.Module):
-    def __init__(self, nlatent, ndf):
-        super(LatentDiscriminator, self).__init__()
+class Latent_Discriminator(nn.Module):
+    def __init__(self, nlatent, ndf, device):
+        super(Latent_Discriminator, self).__init__()
 
         self.nlatent = nlatent
 
@@ -244,10 +209,9 @@ class LatentDiscriminator(nn.Module):
             nn.Linear(ndf, 1)
         ]
 
-        if use_sigmoid:
-            sequence += [nn.Sigmoid()]
-
         self.model = nn.Sequential(*sequence)
+        self.to(device)
+        utils.init_weights(self)
 
     def forward(self, input):
         if input.dim() == 4:

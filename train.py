@@ -23,6 +23,8 @@ parser.add_argument('--num_workers', type=int, default=4, help="# of cpu threads
 parser.add_argument('--save_summary_steps', type=int, default=100, help="# of iter to save current status")
 parser.add_argument('--buf_size', type=int, default=20, help="Buffer size to save previous generated images")
 parser.add_argument('--image_saving_step', type=int, default=10, help="Save results on every # iters")
+parser.add_argument('--total_iter', type=int, default=0)
+parser.add_argument('--cur_iter', type=int, default=0)
 
 # Related to dataset
 parser.add_argument('--S_nc', type=int, default=3, help="Source dataset's channels")
@@ -42,7 +44,7 @@ parser.add_argument('--lr', type=float, default=0.0002, help="Learning rate")
 parser.add_argument('--beta', type=float, default=0.5, help="Used with Adam optimizer")
 parser.add_argument('--n_res_blocks', type=int, default=9, help="Number of residual blocks used to make G")
 parser.add_argument('--lambda_cycle', type=float, default=10, help="Lambda for cycle consistency loss")
-parser.add_argument('--lambda_ident', type=float, default=10, help="Lambda for identity loss")
+parser.add_argument('--lambda_ident', type=float, default=10, help="Lambda for identity loss - To preserve origin image's color palette")
 parser.add_argument('--batch_size', type=int, default=4, help="Batch size")
 parser.add_argument('--use_dropout', type=bool, default=False, help="Wether to use dropout or not")
 
@@ -83,21 +85,20 @@ if __name__ == "__main__":
 
     # Logging과 Visualizing
     logger = Logger(params, len(train_dl))
+    params.total_iter = len(train_dl) * params.num_epochs
 
-    total_iter = 0                              # Total number of training iteration
     # Train
     for epoch in range(params.start_epoch, params.start_epoch + params.num_epochs):
-        epoch_start_time = time.time()          # How long does it takes for 1 epoch
-        cur_iter = 0                            # Current iter in current epoch
 
         for i, batch in enumerate(train_dl):
-            iter_start_time = time.time()       # How long does it takes for 1 iter
+            params.cur_iter += 1
 
             # Actual training
             model.set_input(batch)
             model.train()
             term_log, loss_log, img_log = model.get_data_for_logging()
             logger.log(term_log, loss_log, img_log)
+
     
     model.save('last.pth.tar')
 

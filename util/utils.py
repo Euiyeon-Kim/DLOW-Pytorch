@@ -79,7 +79,13 @@ def saveImg(tensor, output_dir, name):
     save.save(os.path.join(output_dir, name))
 
 
-def get_domainess(cur_iter, total_iter):
+def get_domainess(cur_iter, total_iter, batch):
     alpha = np.exp((cur_iter - (0.5 * total_iter)) / (0.25 * total_iter))
     distribution = Beta(alpha, 1)
-    return distribution.sample()
+    return distribution.sample((batch, 1))
+
+if __name__=="__main__":
+    a = get_domainess(1, 100, 5)
+    m = nn.Linear(1, 16)
+    b = torch.unsqueeze(torch.unsqueeze(m(a), 2), 3)
+    print(b.shape)

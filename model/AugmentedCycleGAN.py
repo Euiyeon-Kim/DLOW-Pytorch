@@ -25,87 +25,49 @@ class AugmentedCycleGAN(nn.Module):
             self.device = torch.device('cpu')
 
         # Generator 생성 및 초기화
-        self.G_S = Base.Stoch_Generator(params.nlatent, params.T_nc, params.S_nc, params.ngf, 
-                                        params.use_dropout, params.n_res_blocks)  # T를 S로 변환하는 Generator
+        self.G_S = Base.Generator(params.T_nc, params.S_nc, params.ngf, 
+                                  params.use_dropout, params.n_res_blocks, self.device)  # T를 S로 변환하는 Generator
         self.G_T = Base.Stoch_Generator(params.nlatent, params.S_nc, params.T_nc, params.ngf, 
-                                        params.use_dropout, params.n_res_blocks)  # S를 T로 변환하는 Generator
-        if params.cuda:
-            self.G_S.cuda()
-            self.G_T.cuda()
-        utils.init_weights(self.G_S)
-        utils.init_weights(self.G_T)
+                                        params.use_dropout, params.n_res_blocks, self.device)  # S를 T로 변환하는 Generator
 
         if is_train:
+            # Latent code encoder
+            self.G_D = nn.Linear(1, params.nlatent)
+            self.G_D.to(self.device)
+            utils.init_weights(self.G_D)
+
             # Discriminator 생성 및 초기화
-            self.D_S = Base.Stoch_Discriminator(params.nlatent, params.S_nc, params.ndf)  # domain S를 구분하는 Discriminator
-            self.D_T = Base.Stoch_Discriminator(params.nlatent, params.T_nc, params.ndf)  # domain T를 구분하는 Discriminator
-           
+            self.D_S = Base.Discriminator(params.S_nc, params.ndf, self.device)  # domain S를 구분하는 Discriminator
+            self.D_T = Base.Discriminator(params.T_nc, params.ndf, self.device)  # domain T를 구분하는 Discriminator
+            self.D_D = Base.Latent_Discriminator(params.nlatent, params.ndf, self.device) # 
+
             # Encoder 생성 및 초기화 / Encoder는 S와 T모두를 받아서 둘의 차이를 인코딩
             enc_input_nc = params.S_nc + params.T_nc
-            self.Encoder = Base.LatentEncoder(params.nlatent, enc_input_nc, params.nef, norm='batch')
-            
-            # Latent code discriminator 생성 및 초기화
-            self.D_Z = Base.LatentDiscriminator(params.nlatent, params.ndf)
-            
-            if params.cuda:
-                self.D_S.cuda()
-                self.D_T.cuda()
-                self.D_Z.cuda()
-                self.Encoder.cuda()
-                
-            utils.init_weights(self.D_S)
-            utils.init_weights(self.D_T)
-            utils.init_weights(self.D_Z)
-            utils.init_weights(self.Encoder)
-
-            Tensor = torch.cuda.FloatTensor if params.cuda else torch.Tensor
-            self.real = Variable(Tensor(params.batch_size).fill_(1.0), requires_grad=False)
-            self.fake = Variable(Tensor(params.batch_size).fill_(0.0), requires_grad=False)
-
-            # Losses 및 Optimizer 생성
-
-            self.optimizer_G_A = torch.optim.Adam(self.netG_B_A.parameters(),
-                                              lr=opt.lr, betas=(opt.beta1, 0.999))
-            self.optimizer_G_B = torch.optim.Adam(itertools.chain(self.netG_A_B.parameters(),
-                                                              self.netE_B.parameters()),
-                                              lr=opt.lr, betas=(opt.beta1, 0.999))
-            self.optimizer_D_A = torch.optim.Adam(self.netD_A.parameters(),
-                                              lr=opt.lr/5., betas=(opt.beta1, 0.999))
-            self.optimizer_D_B = torch.optim.Adam(itertools.chain(self.netD_B.parameters(),
-                                                              self.netD_z_B.parameters(),
-                                                              ),
-                                              lr=opt.lr/5., betas=(opt.beta1, 0.999))
-            self.criterionGAN = functools.partial(criterion_GAN, use_sigmoid=opt.use_sigmoid)
-            self.criterionCycle = F.l1_loss
-
-            assert(params.S_nc == params.T_nc)          # Identity Loss를 사용하려면 필요
-            # Buffers to save previously generated images
-            self.save_fake_S = ImageBuffer(params.buf_size)
-            self.save_fake_T = ImageBuffer(params.buf_size)
-            # Losses
-            self.criterion_GAN = nn.MSELoss()           # Adversarial loss at CycleGAN section 3.1
-            self.criterion_cycle = nn.L1Loss()          # Cycle consistency loss at CycleGAN section 3.2
-            self.criterion_identity = nn.L1Loss()       # Identity loss at CycleGAN section 5.2
-            # Optimizer
-            self.optimizer_G = torch.optim.Adam(itertools.chain(self.G_S.parameters(), self.G_T.parameters()),
-                                                lr=params.lr, betas=(params.beta, 0.999))
-            self.optimizer_D = torch.optim.Adam(itertools.chain(self.D_S.parameters(), self.D_T.parameters()),
-                                                lr=params.lr, betas=(params.beta, 0.999))
-            # 필요에 따라 LR schedulers 추가 선언
-
-        # Model 구성요소 이름 저장
-        if is_train:
-            self.model_names = ['G_S', 'G_T', 'D_S', 'D_T', 'D_Z', 'Encoder']
-            self.loss_names = ['G_S', 'D_S', 'Cycle_S', 'Ident_S', 'G_T', 'D_T', 'Cycle_T', 'Ident_T']
-        else:
-            self.model_names = ['G_S', 'G_T']
+            self.E_D = Base.Latent_Encoder(params.nlatent, enc_input_nc, params.nef, nn.BatchNorm2d, self.device)
+ 
+            # Criterion 및 Optimizer 생성
+            self.optimizer_G_S = torch.optim.Adam(self.G_S.parameters(), lr=params.lr, betas=(params.beta, 0.999))
+            self.optimizer_G_T = torch.optim.Adam(itertools.chain(self.G_D.parameters(), self.G_T.parameters(), self.E_D.parameters()),
+                                                  lr=params.lr, betas=(params.beta, 0.999))
+            self.optimizer_D_S = torch.optim.Adam(self.D_S.parameters(), lr=params.lr, betas=(params.beta, 0.999))
+            self.optimizer_D_T = torch.optim.Adam(itertools.chain(self.D_T.parameters(), self.D_D.parameters()),
+                                                  lr=params.lr, betas=(params.beta, 0.999))
+            self.criterionGAN = nn.MSELoss()
+            self.criterion_cycle = nn.L1Loss()
 
     def set_input(self, input):
         ''' 
             Iteration마다 DataLoader로부터 input을 받아서 unpack
+            size : batch, channel, height, width
         '''
         self.real_S = Variable(input['S_img'].to(self.device))
         self.real_T = Variable(input['T_img'].to(self.device))
+        self.domainess = utils.get_domainess(self.params.cur_iter, self.params.total_iter, self.params.batch_size)
+
+        # Answer for discriminator
+        tmp = torch.unsqueeze(torch.unsqueeze(self.domainess, 2), 3)
+        self.ans_D_S = Variable(torch.repeat_interleave(torch.repeat_interleave(tmp, 16, dim=2), 23, dim=3).to(self.device), requires_grad=False)
+        self.ans_D_T = Variable(torch.ones([self.params.batch_size, 1, 16, 23]).to(self.device), requires_grad=False)
 
     def set_requires_grad(self, model_list, requires_grad=False):
         """
@@ -119,11 +81,16 @@ class AugmentedCycleGAN(nn.Module):
                     param.requires_grad = requires_grad
 
     def forward(self):
-        self.fake_S = self.G_S(self.real_T)     # G_S(T)
-        self.recons_T = self.G_T(self.fake_S)   # G_T(G_S(T))
-        self.fake_T = self.G_T(self.real_S)     # G_T(S)
-        self.recons_S = self.G_S(self.fake_T)   # G_S(G_T(S))
-
+        self.Zd = torch.unsqueeze(torch.unsqueeze(self.G_D(self.domainess), 2), 3).to(self.device)     # S에서 T로 변환하면서 추가할 정보
+        self.fake_T = self.G_T(self.real_S, Zd)                                                        # G_T(S) -> DLOW
+        concat_rS_fT = torch.cat((self.real_S, fake_T))
+        self.m_recons_Zd, self.v_recons_Zd = self.E_D(concat_rS_fT)
+        
+        self.fake_S = self.G_S(self.real_T)                                                            # G_S(T)
+        concat_fS_rT = torch.cat((fake_S, self.real_T), 1)                                     
+        self.m_fake_Zd, self.v_fake_Zd = self.E_D(concat_fS_rT)                               # T에서 S로 가면서 사라진 정보
+        self.recons_T = self.G_T(self.fake_S)                                                          # G_T(G_S(T))
+        
     def train_D(self):
         '''
             real_T -- G_T --> fake_S -->
