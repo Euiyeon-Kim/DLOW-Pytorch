@@ -45,7 +45,7 @@ parser.add_argument('--beta', type=float, default=0.5, help="Used with Adam opti
 parser.add_argument('--n_res_blocks', type=int, default=9, help="Number of residual blocks used to make G")
 parser.add_argument('--lambda_cycle', type=float, default=10, help="Lambda for cycle consistency loss")
 parser.add_argument('--lambda_ident', type=float, default=10, help="Lambda for identity loss - To preserve origin image's color palette")
-parser.add_argument('--batch_size', type=int, default=4, help="Batch size")
+parser.add_argument('--batch_size', type=int, default=1, help="Batch size")
 parser.add_argument('--use_dropout', type=bool, default=False, help="Wether to use dropout or not")
 
 # Related to learning rate policy

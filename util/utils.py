@@ -84,8 +84,12 @@ def get_domainess(cur_iter, total_iter, batch):
     distribution = Beta(alpha, 1)
     return distribution.sample((batch, 1))
 
-if __name__=="__main__":
-    a = get_domainess(1, 100, 5)
-    m = nn.Linear(1, 16)
-    b = torch.unsqueeze(torch.unsqueeze(m(a), 2), 3)
-    print(b.shape)
+def print_network(net, out_f=None):
+    num_params = 0
+    for param in net.parameters():
+        num_params += param.numel()
+    # print(net)
+    if out_f is not None:
+        out_f.write(net.__repr__()+"\n")
+        out_f.write('Total number of parameters: %d\n' % num_params)
+        out_f.flush()
