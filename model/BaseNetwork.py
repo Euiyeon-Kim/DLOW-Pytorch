@@ -12,7 +12,7 @@ sys.path.append("..")
     Generator / Discriminator
 '''
 class Generator(nn.Module):
-    def __init__(self, input_nc, output_nc, ngf, use_dropout=False, n_res_blocks=9, device='cpu'):
+    def __init__(self, input_nc, output_nc, ngf, use_dropout=False, n_res_blocks=9):
         super(Generator, self).__init__()
         # Initial convolution block       
         model = [    nn.ReflectionPad2d(3), # Reference from CycleGAN
@@ -49,7 +49,6 @@ class Generator(nn.Module):
                     nn.Tanh() ]
 
         self.model = nn.Sequential(*model)
-        self.to(device)
         utils.init_weights(self)
 
     def forward(self, x):
@@ -57,7 +56,7 @@ class Generator(nn.Module):
 
 
 class Discriminator(nn.Module):
-    def __init__(self, input_nc, ndf, device):
+    def __init__(self, input_nc, ndf):
         super(Discriminator, self).__init__()
 
         norm_layer = InstanceNorm
@@ -86,7 +85,6 @@ class Discriminator(nn.Module):
         model += [  nn.Conv2d(ndf*8, 1, 4, padding=1)   ]
 
         self.model = nn.Sequential(*model)
-        self.to(device)
         utils.init_weights(self)
 
     def forward(self, x): # 크기 계산 잘 해봅시다
@@ -98,7 +96,7 @@ class Discriminator(nn.Module):
     Stochastic generator / Latent encoder / 
 '''
 class Stoch_Generator(nn.Module):
-    def __init__(self, nlatent, input_nc, output_nc, ngf=64, use_dropout=False, n_blocks=9, device='cpu'):
+    def __init__(self, nlatent, input_nc, output_nc, ngf=64, use_dropout=False, n_blocks=9):
         super(Stoch_Generator, self).__init__()
         norm_layer = CondInstanceNorm
 
@@ -135,7 +133,6 @@ class Stoch_Generator(nn.Module):
         ]
 
         self.model = TwoInputSequential(*model)
-        self.to(device)
         utils.init_weights(self)
 
     def forward(self, input, noise):
@@ -143,7 +140,7 @@ class Stoch_Generator(nn.Module):
 
 
 class Latent_Encoder(nn.Module):
-    def __init__(self, nlatent, input_nc, nef, norm_layer, device):
+    def __init__(self, nlatent, input_nc, nef, norm_layer):
         super(Latent_Encoder, self).__init__()
         
         use_bias = False
@@ -176,7 +173,6 @@ class Latent_Encoder(nn.Module):
         # make sure we return mu and logvar for latent code normal distribution
         self.enc_mu = nn.Conv2d(8*nef, nlatent, kernel_size=1, stride=1, padding=0, bias=True)
         self.enc_logvar = nn.Conv2d(8*nef, nlatent, kernel_size=1, stride=1, padding=0, bias=True)
-        self.to(device)
         utils.init_weights(self)
 
     def forward(self, input):
@@ -187,7 +183,7 @@ class Latent_Encoder(nn.Module):
 
 
 class Latent_Discriminator(nn.Module):
-    def __init__(self, nlatent, ndf, device):
+    def __init__(self, nlatent, ndf):
         super(Latent_Discriminator, self).__init__()
 
         self.nlatent = nlatent
@@ -210,7 +206,6 @@ class Latent_Discriminator(nn.Module):
         ]
 
         self.model = nn.Sequential(*sequence)
-        self.to(device)
         utils.init_weights(self)
 
     def forward(self, input):

@@ -8,7 +8,6 @@ from torchvision.transforms import transforms
 '''
     Source Dataset : GTA5 (labeled)
     Target Dataset : bdd100k (unlabeled)
-    Resize datasets into (1024, 576) size
 '''
 
 
@@ -27,7 +26,7 @@ class ImageDataset(Dataset):
         self.S_imgnames = sorted(os.listdir(S_image_path))
         self.T_imgnames = sorted(os.listdir(T_image_path))
         self.S_imgnames = [os.path.join(S_image_path, f) for f in self.S_imgnames if f.endswith('.png')]
-        self.T_imgnames = [os.path.join(T_image_path, f) for f in self.T_imgnames if f.endswith('.jpg')]
+        self.T_imgnames = [os.path.join(T_image_path, f) for f in self.T_imgnames if f.endswith('.png')]
          
         # 상응하는 label path도 parsing 할 것 --> for segmentation
 
@@ -60,14 +59,12 @@ def get_transformer(H, W):
         transfroms.Normarlize((0.5, ), (0.5, ))는 [0, 1] --> [-1, 1]로 변환
     '''
     S_transformer = transforms.Compose([
-        transforms.Resize((H, W)),
         transforms.RandomHorizontalFlip(),
         transforms.ToTensor(),
-        transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)) # (mean), (std) --> 0 에서 1사이로 normalize
+        transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)) # (mean), (std) --> -1 에서 1사이로 normalize
     ])
 
     T_transformer = transforms.Compose([
-        transforms.Resize((H, W)),
         transforms.RandomHorizontalFlip(),
         transforms.ToTensor(),
         transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))

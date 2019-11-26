@@ -17,23 +17,18 @@ class CycleGAN(nn.Module):
     def __init__(self, params, is_train=True):
         super(CycleGAN, self).__init__()
         self.params = params
-        # Device 설정
-        if params.cuda: # 후에 multi-GPU coding할 수 있으면 적용
-            self.device = torch.device('cuda:{}'.format(params.gpu_id)) 
-        else:
-            self.device = torch.device('cpu')
 
         # Generator 생성 및 초기화
-        self.G_S = Base.Generator(params.T_nc, params.S_nc, params.ngf, params.use_dropout, params.n_res_blocks, self.device)  # T를 S로 변환하는 Generator
-        self.G_T = Base.Generator(params.S_nc, params.T_nc, params.ngf, params.use_dropout, params.n_res_blocks, self.device)  # S를 T로 변환하는 Generator
+        self.G_S = Base.Generator(params.T_nc, params.S_nc, params.ngf, params.use_dropout, params.n_res_blocks)  # T를 S로 변환하는 Generator
+        self.G_T = Base.Generator(params.S_nc, params.T_nc, params.ngf, params.use_dropout, params.n_res_blocks)  # S를 T로 변환하는 Generator
 
         # Discriminator 생성 및 초기화
         if is_train:
-            self.D_S = Base.Discriminator(params.S_nc, params.ndf, self.device)  # domain S를 구분하는 Discriminator
-            self.D_T = Base.Discriminator(params.T_nc, params.ndf, self.device)  # domain T를 구분하는 Discriminator
+            self.D_S = Base.Discriminator(params.S_nc, params.ndf)  # domain S를 구분하는 Discriminator
+            self.D_T = Base.Discriminator(params.T_nc, params.ndf)  # domain T를 구분하는 Discriminator
             
-            self.real = Variable(torch.ones([params.batch_size, 1, 16, 23]).to(self.device), requires_grad=False)
-            self.fake = Variable(torch.zeros([params.batch_size, 1, 16, 23]).to(self.device), requires_grad=False)
+            self.real = Variable(torch.ones([params.batch_size, 1, 16, 23]), requires_grad=False)
+            self.fake = Variable(torch.zeros([params.batch_size, 1, 16, 23]), requires_grad=False)
 
             # Losses 및 Optimizer 생성
             assert(params.S_nc == params.T_nc)          # Identity Loss를 사용하려면 필요
@@ -56,8 +51,8 @@ class CycleGAN(nn.Module):
         ''' 
             Iteration마다 DataLoader로부터 input을 받아서 unpack
         '''
-        self.real_S = Variable(input['S_img'].to(self.device))
-        self.real_T = Variable(input['T_img'].to(self.device))
+        self.real_S = Variable(input['S_img'])
+        self.real_T = Variable(input['T_img'])
 
     def set_requires_grad(self, model_list, requires_grad=False):
         """

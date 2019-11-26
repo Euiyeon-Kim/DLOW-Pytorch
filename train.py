@@ -9,7 +9,6 @@ from data import DataLoader
 from util.Logger import Logger
 from util.utils import*
 from model.CycleGAN import CycleGAN
-from model.AugmentedCycleGAN import AugmentedCycleGAN
 from model.InterpolationGAN import InterpolationGAN
 
 parser = argparse.ArgumentParser()
@@ -69,11 +68,11 @@ if __name__ == "__main__":
     if not os.path.isdir(params.checkpoint_dir):
         os.mkdir(params.checkpoint_dir)
 
-    # GPU 사용 가능 여부 확인
-    params.cuda = torch.cuda.is_available()
+    # GPU 할당
+    os.environ["CUDA_VISIBLE_DEVICES"] = '0'
 
     # Model 선언
-    model = AugmentedCycleGAN(params)
+    model = InterpolationGAN(params)
 
     # 데이터 로딩
     sys.stdout.write("Loading the data...")
