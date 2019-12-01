@@ -2,6 +2,9 @@ import torch
 import random
 import numpy as np
 
+
+# CycleGAN에서 학습 안정화를 위해 사용 --> DLOW 모델에서는 사용하지 않음
+
 class ImageBuffer():
     def __init__(self, buf_size):
         '''

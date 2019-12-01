@@ -38,18 +38,18 @@ def init_weights(network, init_type='normal', init_gain=0.02):
 
 
 # Referenced https://github.com/junyanz/pytorch-CycleGAN-and-pix2pix/blob/master/models/networks.py
-def get_scheduler(paramsimizer, args):
+def get_scheduler(confimizer, args):
     if args.lr_policy == 'linear':
         def lambda_rule(epoch):
             lr_l = 1.0 - max(0, epoch + args.epoch_count - args.start_decay) / float(args.decay_cycle + 1)
             return lr_l
-        scheduler = lr_scheduler.LambdaLR(paramsimizer, lr_lambda=lambda_rule)
+        scheduler = lr_scheduler.LambdaLR(confimizer, lr_lambda=lambda_rule)
     elif args.lr_policy == 'step':
-        scheduler = lr_scheduler.StepLR(paramsimizer, step_size=args.lr_decay_iters, gamma=0.1)
+        scheduler = lr_scheduler.StepLR(confimizer, step_size=args.lr_decay_iters, gamma=0.1)
     elif args.lr_policy == 'plateau':
-        scheduler = lr_scheduler.ReduceLROnPlateau(paramsimizer, mode='min', factor=0.2, threshold=0.01, patience=5)
+        scheduler = lr_scheduler.ReduceLROnPlateau(confimizer, mode='min', factor=0.2, threshold=0.01, patience=5)
     elif args.lr_policy == 'cosine':
-        scheduler = lr_scheduler.CosineAnnealingLR(paramsimizer, T_max=args.start_decay, eta_min=0)
+        scheduler = lr_scheduler.CosineAnnealingLR(confimizer, T_max=args.start_decay, eta_min=0)
     else:
         return NotImplementedError('learning rate policy [%s] is not implemented', args.lr_policy)
     return scheduler
@@ -84,12 +84,14 @@ def get_domainess(cur_iter, total_iter, batch):
     distribution = Beta(alpha, 1)
     return distribution.sample((batch, 1))
 
+
 def print_network(net, out_f=None):
-    num_params = 0
+    num_conf = 0
     for param in net.parameters():
-        num_params += param.numel()
-    # print(net)
+        num_conf += param.numel()
+    print(net)
+    print("Total number of parameters: %d\n"%num_conf)
     if out_f is not None:
         out_f.write(net.__repr__()+"\n")
-        out_f.write('Total number of parameters: %d\n' % num_params)
+        out_f.write('Total number of parameters: %d\n' % num_conf)
         out_f.flush()

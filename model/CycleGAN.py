@@ -14,36 +14,39 @@ sys.path.append("..")
 
 class CycleGAN(nn.Module):
 
-    def __init__(self, params, is_train=True):
+    def __init__(self, conf, is_train=True, buf_size=20):
         super(CycleGAN, self).__init__()
-        self.params = params
+        self.conf = conf
 
         # Generator 생성 및 초기화
-        self.G_S = Base.Generator(params.T_nc, params.S_nc, params.ngf, params.use_dropout, params.n_res_blocks)  # T를 S로 변환하는 Generator
-        self.G_T = Base.Generator(params.S_nc, params.T_nc, params.ngf, params.use_dropout, params.n_res_blocks)  # S를 T로 변환하는 Generator
+        self.G_S = Base.Generator(conf['T_nc'], conf['S_nc'], conf['ngf'], conf['use_dropout'], conf['n_res_blocks'])  # T를 S로 변환하는 Generator
+        self.G_T = Base.Generator(conf['S_nc'], conf['T_nc'], conf['ngf'], conf['use_dropout'], conf['n_res_blocks'])  # S를 T로 변환하는 Generator
 
         # Discriminator 생성 및 초기화
         if is_train:
-            self.D_S = Base.Discriminator(params.S_nc, params.ndf)  # domain S를 구분하는 Discriminator
-            self.D_T = Base.Discriminator(params.T_nc, params.ndf)  # domain T를 구분하는 Discriminator
+            self.D_S = Base.Discriminator(conf['S_nc'], conf['ndf'])  # domain S를 구분하는 Discriminator
+            self.D_T = Base.Discriminator(conf['T_nc'], conf['ndf'])  # domain T를 구분하는 Discriminator
             
-            self.real = Variable(torch.ones([params.batch_size, 1, 16, 23]), requires_grad=False)
-            self.fake = Variable(torch.zeros([params.batch_size, 1, 16, 23]), requires_grad=False)
+            self.real = Variable(torch.ones([conf['batch_size'], 1, 16, 23]), requires_grad=False)    # Real answer for discriminator
+            self.fake = Variable(torch.zeros([conf['batch_size'], 1, 16, 23]), requires_grad=False)   # Fake answer for discriminator
 
             # Losses 및 Optimizer 생성
-            assert(params.S_nc == params.T_nc)          # Identity Loss를 사용하려면 필요
+            assert(conf['S_nc'] == conf['T_nc'])          # Identity Loss를 사용하려면 필요
+            
             # Buffers to save previously generated images
-            self.save_fake_S = ImageBuffer(params.buf_size)
-            self.save_fake_T = ImageBuffer(params.buf_size)
+            self.save_fake_S = ImageBuffer(buf_size)
+            self.save_fake_T = ImageBuffer(buf_size)
+            
             # Losses
             self.criterion_GAN = nn.MSELoss()           # Adversarial loss at CycleGAN section 3.1
             self.criterion_cycle = nn.L1Loss()          # Cycle consistency loss at CycleGAN section 3.2
             self.criterion_identity = nn.L1Loss()       # Identity loss at CycleGAN section 5.2
+            
             # Optimizer
             self.optimizer_G = torch.optim.Adam(itertools.chain(self.G_S.parameters(), self.G_T.parameters()),
-                                                lr=params.lr, betas=(params.beta, 0.999))
+                                                lr=conf['lr'], betas=(conf['beta'], 0.999))
             self.optimizer_D = torch.optim.Adam(itertools.chain(self.D_S.parameters(), self.D_T.parameters()),
-                                                lr=params.lr, betas=(params.beta, 0.999))
+                                                lr=conf['lr'], betas=(conf['beta'], 0.999))
             # 필요에 따라 LR schedulers 추가 선언
             
 
@@ -101,8 +104,8 @@ class CycleGAN(nn.Module):
         self.loss_D_T.backward()
 
     def train_G(self):
-        lambda_cycle = self.params.lambda_cycle
-        lambda_ident = self.params.lambda_ident
+        lambda_cycle = self.conf['lambda_cycle']
+        lambda_ident = self.conf['lambda_ident']
 
         # Identity training
         self.ident_S = self.G_S(self.real_S)
@@ -136,8 +139,6 @@ class CycleGAN(nn.Module):
         self.optimizer_D.step()
 
     def get_data_for_logging(self):
-        log_for_term = {'G_total': self.loss_G, 'D_total': self.loss_D_S+self.loss_D_T}                   # Terminal에 logging할 정보
-
         loss_log = {'G_total': self.loss_G, 'G_adversarial': self.loss_G_S+self.loss_G_T,                 # Visdom에 visualize할 loss graph
                     'G_identity': self.loss_ident_S+self.loss_ident_T,
                     'G_cycle':self.loss_cycle_S + self.loss_cycle_T,
@@ -146,10 +147,10 @@ class CycleGAN(nn.Module):
         img_log = { 'real_S':self.real_S[0], 'real_T':self.real_T[0], 'fake_S':self.fake_S[0],            # Visdom에 visualize할 images
                     'fake_T':self.fake_T[0], 'recons_S':self.recons_S[0], 'recons_T':self.recons_T[0]}
 
-        return log_for_term, loss_log, img_log
+        return loss_log, img_log
 
     def save(self, ckp_name):
-        path = os.path.join(self.params.checkpoint_dir, ckp_name)
+        path = os.path.join(self.conf['checkpoint_dir'], ckp_name)
         checkpoint = {   'G_S': self.G_S.state_dict(),
                          'G_T': self.G_T.state_dict(),
                          'D_S': self.D_S.state_dict(),

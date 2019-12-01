@@ -27,7 +27,7 @@ class ImageDataset(Dataset):
         self.T_imgnames = sorted(os.listdir(T_image_path))
         self.S_imgnames = [os.path.join(S_image_path, f) for f in self.S_imgnames if f.endswith('.png')]
         self.T_imgnames = [os.path.join(T_image_path, f) for f in self.T_imgnames if f.endswith('.png')]
-         
+        print(self.S_imgnames)
         # 상응하는 label path도 parsing 할 것 --> for segmentation
 
         self.fixed_pair = fixed_pair
@@ -53,7 +53,7 @@ class ImageDataset(Dataset):
         return {'S_img': S_img, 'T_img': T_img}  # 'S_label': S_label, 'T_label': T_label
 
 
-def get_transformer(H, W):
+def get_transformer(H, W):  # 현재는 resizing이 없느나, 추가 가능
     '''
         transforms.ToTensor() --> Tensor의 범위가 [0, 1]
         transfroms.Normarlize((0.5, ), (0.5, ))는 [0, 1] --> [-1, 1]로 변환
@@ -72,16 +72,17 @@ def get_transformer(H, W):
     return S_transformer, T_transformer
 
 
-def get_dataloaders(types, params):
+def get_dataloaders(types, conf):
     dataloaders = {}
 
-    S_transformer, T_transformer = get_transformer(params.resize_H, params.resize_W)
+    S_transformer, T_transformer = get_transformer(conf['resize_H'], conf['resize_W'])
     for option in ['train', 'val', 'test']:
         if option in types:
-            data_loader = DataLoader(ImageDataset(params.root_dir, S_transformer, T_transformer,
-                                                  params.fixed_pair,mode=option),
-                                     batch_size=params.batch_size, shuffle=True,
-                                     num_workers=params.num_workers, pin_memory=params.cuda)
+            data_loader = DataLoader(ImageDataset(conf['data_root_dir'], S_transformer, T_transformer,
+                                                  conf['fixed_pair'], mode=option),
+                                     batch_size=conf['batch_size'], shuffle=True,
+                                     num_workers=conf['num_workers'], pin_memory=False)
+                                     # 여기서 pin_memory를 True로 두면 data를 복사.
             dataloaders[option] = data_loader
 
     return dataloaders
