@@ -2,10 +2,10 @@ train:
   
   # Basic settings
   cuda: True
-  gpu_id: 0
+  gpu_id: "0, 1"                             # String 형태
   start_epoch: 0
-  num_epochs: 100
-  num_workers: 10                            # 양수로 두면 multi-process data loading
+  num_epochs: 1000
+  num_workers: 0                             # 양수로 두면 multi-process data loading
   save_summary_steps: 10
   cur_iter: 0                                # 현재까지 학습한 iteration --> domainess 설정과 tensorboard logging에 쓰임
   total_iter: 0                              # 학습해야하는 total iteration --> domainess 설정에서 사용
@@ -19,8 +19,8 @@ train:
   # Related to dataset
   S_nc: 3
   T_nc: 3
-  resize_W: 400
-  resize_H: 300
+  S_H: 563                                    # Aspect ratio를 유지하면서 width가 1024가 되도록 하는 height
+  T_H: 512
   fixed_pair: False
 
   # Hyperparameters
@@ -29,7 +29,7 @@ train:
   n_res_blocks: 9
   lambda_cycle: 10
   lambda_ident: 10
-  batch_size: 1
+  batch_size: 2
 
   # Architectures
   ngf: 64

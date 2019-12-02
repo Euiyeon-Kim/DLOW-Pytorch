@@ -9,11 +9,9 @@ from tensorboardX import SummaryWriter
 from . import utils
 
 class Logger():
-    def __init__(self, conf, cur_batch, num_batches):
+    def __init__(self, conf):
         self.conf = conf
         self.summary = SummaryWriter()
-        self.num_epochs = conf['num_epochs']
-        self.num_batches = num_batches
 
     def log(self, losses=None, images=None):
         '''
@@ -21,10 +19,10 @@ class Logger():
             images   : tensorboard에 visualize할 images dictionary
         '''
         # Visualized logging for images
-        for img_name, tensor in images.items(): # 현재 tensor는 H, W, C 형태 
-            chw = tensor.transpose(1, 2).transpose(1, 3)
-            self.summary.add_image(img_name, chw, self.conf['cur_iter'])
+        for img_name, tensor in images.items(): 
+            img = ((tensor.detach().cpu().float().numpy()) + 1) / 2.0
+            self.summary.add_image(img_name, img, self.conf['cur_iter'])
             
         # Visualize logging for losses
-        for loss_name, loss in self.losses.items():
-            self.summary.add_scalr(loss_name, loss, self.conf['cur_iter'])
+        for loss_name, loss in losses.items():
+            self.summary.add_scalar(loss_name, loss, self.conf['cur_iter'])

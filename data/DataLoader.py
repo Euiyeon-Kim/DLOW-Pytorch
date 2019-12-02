@@ -27,7 +27,6 @@ class ImageDataset(Dataset):
         self.T_imgnames = sorted(os.listdir(T_image_path))
         self.S_imgnames = [os.path.join(S_image_path, f) for f in self.S_imgnames if f.endswith('.png')]
         self.T_imgnames = [os.path.join(T_image_path, f) for f in self.T_imgnames if f.endswith('.png')]
-        print(self.S_imgnames)
         # 상응하는 label path도 parsing 할 것 --> for segmentation
 
         self.fixed_pair = fixed_pair
@@ -53,19 +52,23 @@ class ImageDataset(Dataset):
         return {'S_img': S_img, 'T_img': T_img}  # 'S_label': S_label, 'T_label': T_label
 
 
-def get_transformer(H, W):  # 현재는 resizing이 없느나, 추가 가능
+def get_transformer(S_H, T_H):  # 현재는 resizing이 없느나, 추가 가능
     '''
         transforms.ToTensor() --> Tensor의 범위가 [0, 1]
         transfroms.Normarlize((0.5, ), (0.5, ))는 [0, 1] --> [-1, 1]로 변환
     '''
     S_transformer = transforms.Compose([
         transforms.RandomHorizontalFlip(),
+        transforms.Resize((S_H, 1024)),
+        transforms.RandomCrop((400, 400)),
         transforms.ToTensor(),
         transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)) # (mean), (std) --> -1 에서 1사이로 normalize
     ])
 
     T_transformer = transforms.Compose([
         transforms.RandomHorizontalFlip(),
+        transforms.Resize((T_H, 1024)),
+        transforms.RandomCrop((400, 400)),
         transforms.ToTensor(),
         transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
     ])
@@ -75,7 +78,7 @@ def get_transformer(H, W):  # 현재는 resizing이 없느나, 추가 가능
 def get_dataloaders(types, conf):
     dataloaders = {}
 
-    S_transformer, T_transformer = get_transformer(conf['resize_H'], conf['resize_W'])
+    S_transformer, T_transformer = get_transformer(conf['S_H'], conf['T_H'])
     for option in ['train', 'val', 'test']:
         if option in types:
             data_loader = DataLoader(ImageDataset(conf['data_root_dir'], S_transformer, T_transformer,
