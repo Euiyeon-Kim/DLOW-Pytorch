@@ -27,21 +27,22 @@ class InterpolationGAN(nn.Module):
         self.G_D = nn.Linear(1, conf['nlatent'])
         utils.init_weights(self.G_D)
 
-        # Discriminator 생성 및 초기화
-        self.D_S = Base.Discriminator(conf['S_nc'], conf['ndf']) # domain S를 구분하는 Discriminator
-        self.D_T = Base.Discriminator(conf['T_nc'], conf['ndf']) # domain T를 구분하는 Discriminator
+        if is_train:
+            # Discriminator 생성 및 초기화
+            self.D_S = Base.Discriminator(conf['S_nc'], conf['ndf']) # domain S를 구분하는 Discriminator
+            self.D_T = Base.Discriminator(conf['T_nc'], conf['ndf']) # domain T를 구분하는 Discriminator
 
-        # Criterion 및 Optimizer 생성
-        self.optimizer_G = torch.optim.Adam(itertools.chain(self.G_D.parameters(), self.G_S.parameters(), self.G_T.parameters()),
-                                              lr=conf['lr'], betas=(conf['beta'], 0.999))
-        self.optimizer_D = torch.optim.Adam(itertools.chain(self.D_S.parameters(), self.D_T.parameters()),
-                                              lr=conf['lr'], betas=(conf['beta'], 0.999))
-        self.criterionGAN = nn.MSELoss(reduction='mean')
-        self.criterion_cycle = nn.L1Loss(reduction='mean')
+            # Criterion 및 Optimizer 생성
+            self.optimizer_G = torch.optim.Adam(itertools.chain(self.G_D.parameters(), self.G_S.parameters(), self.G_T.parameters()),
+                                                lr=conf['lr'], betas=(conf['beta'], 0.999))
+            self.optimizer_D = torch.optim.Adam(itertools.chain(self.D_S.parameters(), self.D_T.parameters()),
+                                                lr=conf['lr'], betas=(conf['beta'], 0.999))
+            self.criterionGAN = nn.MSELoss(reduction='mean')
+            self.criterion_cycle = nn.L1Loss(reduction='mean')
 
-        # Answer for discriminator
-        self.ans_real = Variable(torch.ones([self.conf['batch_size'], 1, 23, 23]), requires_grad=False).cuda()
-        self.ans_fake = Variable(torch.zeros([self.conf['batch_size'], 1, 23, 23]), requires_grad=False).cuda()
+            # Answer for discriminator
+            self.ans_real = Variable(torch.ones([self.conf['batch_size'], 1, 23, 23]), requires_grad=False).cuda()
+            self.ans_fake = Variable(torch.zeros([self.conf['batch_size'], 1, 23, 23]), requires_grad=False).cuda()
 
     def set_input(self, input):
         ''' 
@@ -62,6 +63,16 @@ class InterpolationGAN(nn.Module):
             if model is not None:
                 for param in model.parameters():
                     param.requires_grad = requires_grad
+
+    def foward(self):
+        self.Z = torch.unsqueeze(torch.unsqueeze(self.G_D(self.domainess), 2), 3)              # domainess Z (1, 16, 1, 1)
+        self.fake_T = self.G_T(self.real_S, self.Z)                                            # S에서 T쪽으로 z만큼 이동
+        self.recons_S = self.G_S(self.fake_T, self.Z)                                          # fake_T에서 다시 S쪽으로 z만큼 이동 
+       
+        self.Z_1 = torch.unsqueeze(torch.unsqueeze(self.G_D(1-self.domainess), 2), 3)          # domainess 1 - Z (1, 16, 1, 1)
+        self.fake_S = self.G_S(self.real_T, self.Z_1)                                          # T에서 S쪽으로 1-z만큼 이동
+        self.recons_T = self.G_T(self.fake_S, self.Z_1)                                        # fake_S에서 다시 T쪽으로 1-z만큼 이동
+
 
     def train(self):
         # Make flow S to T
@@ -154,7 +165,3 @@ class InterpolationGAN(nn.Module):
         self.G_D.load_state_dict(checkpoint['G_D'])
         self.G_S.load_state_dict(checkpoint['G_S'])
         self.G_T.load_state_dict(checkpoint['G_T'])
-        self.D_S.load_state_dict(checkpoint['D_S'])
-        self.D_T.load_state_dict(checkpoint['D_T'])
-        self.optimizer_G.load_state_dict(checkpoint['G_optimizer'])
-        self.optimizer_D.load_state_dict(checkpoint['D_optimizer']) 

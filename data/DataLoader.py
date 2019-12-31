@@ -52,33 +52,49 @@ class ImageDataset(Dataset):
         return {'S_img': S_img, 'T_img': T_img}  # 'S_label': S_label, 'T_label': T_label
 
 
-def get_transformer(S_H, T_H):  # 현재는 resizing이 없느나, 추가 가능
+def get_transformer(S_H, T_H, is_train=True):  # 현재는 resizing이 없느나, 추가 가능
     '''
         transforms.ToTensor() --> Tensor의 범위가 [0, 1]
         transfroms.Normarlize((0.5, ), (0.5, ))는 [0, 1] --> [-1, 1]로 변환
     '''
-    S_transformer = transforms.Compose([
-        transforms.RandomHorizontalFlip(),
-        transforms.Resize((S_H, 1024)),
-        transforms.RandomCrop((400, 400)),
-        transforms.ToTensor(),
-        transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)) # (mean), (std) --> -1 에서 1사이로 normalize
-    ])
+    if is_train:
+        S_transformer = transforms.Compose([
+            transforms.RandomHorizontalFlip(),
+            transforms.Resize((S_H, 1024)),
+            transforms.RandomCrop((400, 400)),
+            transforms.ToTensor(),
+            transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)) # (mean), (std) --> -1 에서 1사이로 normalize
+        ])
 
-    T_transformer = transforms.Compose([
-        transforms.RandomHorizontalFlip(),
-        transforms.Resize((T_H, 1024)),
-        transforms.RandomCrop((400, 400)),
-        transforms.ToTensor(),
-        transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
-    ])
-    return S_transformer, T_transformer
+        T_transformer = transforms.Compose([
+            transforms.RandomHorizontalFlip(),
+            transforms.Resize((T_H, 1024)),
+            transforms.RandomCrop((400, 400)),
+            transforms.ToTensor(),
+            transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
+        ])
+        return S_transformer, T_transformer
+    else:
+        S_transformer = transforms.Compose([
+            transforms.Resize((S_H, 1024)),
+            transforms.RandomCrop((400, 400)),
+            transforms.ToTensor(),
+            transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)) # (mean), (std) --> -1 에서 1사이로 normalize
+        ])
+
+        T_transformer = transforms.Compose([
+            transforms.Resize((T_H, 1024)),
+            transforms.RandomCrop((400, 400)),
+            transforms.ToTensor(),
+            transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
+        ])
+        return S_transformer, T_transformer
 
 
-def get_dataloaders(types, conf):
+def get_dataloaders(types, conf, is_train=True):
     dataloaders = {}
 
-    S_transformer, T_transformer = get_transformer(conf['S_H'], conf['T_H'])
+    S_transformer, T_transformer = get_transformer(conf['S_H'], conf['T_H'], is_train)
     for option in ['train', 'val', 'test']:
         if option in types:
             data_loader = DataLoader(ImageDataset(conf['data_root_dir'], S_transformer, T_transformer,

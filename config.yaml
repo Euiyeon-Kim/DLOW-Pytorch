@@ -2,7 +2,7 @@ train:
   
   # Basic settings
   cuda: True
-  gpu_id: "0, 1"                             # String 형태
+  gpu_id: "0 1"                              # String 형태
   start_epoch: 0
   num_epochs: 1000
   num_workers: 0                             # 양수로 두면 multi-process data loading
@@ -39,7 +39,11 @@ train:
   use_dropout: False
 
 test:
-  
+
+infer:
+  checkpoint_dir: "./model/checkpoint"
+  gpu_id: "0 1"                             
+
 
 
 
