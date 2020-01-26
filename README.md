@@ -1,31 +1,120 @@
 # DLOW-Pytorch
-Reproduce DLOW: Domain Flow for Adaptation and Generalization
+Reproduce [DLOW: Domain Flow for Adaptation and Generalization](https://pdfs.semanticscholar.org/cbe1/a8b4712654f382192dc1ccaf00ddfc12f57b.pdf).
+
+
 
 ## Code structure
 	├─ dataset
-	│  ├─ train
-	│  │  ├─ Source
-	│  │  └─ Target
-    │  ├─ val
-	│  │  ├─ Source
-	│  │  └─ Target
-	│  └─ test
-	│     ├─ Source
-	│     └─ Target
+	│  ├─ Source
+	│  │  ├─ img
+	│  │  └─ label
+	│  └─ Target
+	│     ├─ img
+	│     └─ label
 	├─ data
-	│		DataLoader.py : transformer 포함 / dataset의 파일 형식 지정 (.jpg or .png)
-	│		preprocess_GTA5.py : Split train, test, valid dataset
+	│		DataLoader.py
+	│		preprocess_Cityscapes.py 	: Resizing
+	│		preprocess_GTA5.py 				: Split train, test, valid dataset and resizing
 	├─ model
 	│		checkpoint
 	│		Modules.py
 	│		BaseNetwork.py
-	│		Segmentation.py
 	│		InterpolationGAN.py
-	│		DLOW.py
 	├─ utils
-	│		Buffer.py : Discriminator를 학습시킬 때 사용할 버퍼
-	│		Logger.py : Terminal + Visdom Logging 
+	│		Logger.py 							  : Terminal + tensorboard Logging 
 	│		utils.py
-	├─ train.py
-	└─ evaluate.py
+	├─ train.py										: Train InterpolationGAN
+	└─ infer.py 									: Make actual DLOW dataset using InterpolationGAN
 
+
+
+## How to execute
+
+1. Prepare dataset
+
+   dataset 폴더에 아래와 같은 구조로 Cityscapes dataset( leftImg8bit )과 GTA5 dataset 준비
+
+   Cityscapes의 img, label 디렉토리 내부에는 도시 이름으로 된 폴더들 존재
+
+   + [Cityscapes](https://www.cityscapes-dataset.com/)
+   + [GTA5](https://download.visinf.tu-darmstadt.de/data/from_games/)
+
+   ```
+   └─ dataset
+      ├─ Cityscapes
+      │  ├─ test
+      │  │  ├─ img 										: From leftImg8bit_trainvaltest.zip
+      │  │  └─ label										: From gtFine_trainvaltest.zip
+      │  ├─ train
+      │  │  ├─ img
+      │  │  └─ label
+      │  └─ val
+      │     ├─ img
+      │     └─ label   
+      └─ GTA5
+         ├─ img
+         └─ label
+   ```
+
+   
+
+2. Data preprocessing
+
+   데이터 셋을 train, test, validation set으로 나누고 resizing
+
+   ~~~python
+   python3 preprocess_GTA5.py
+   python3 preprocess_Cityscapes.py
+   ~~~
+
+   정상 동작시 아래와 같은 구조의 Source와 Target폴더가 생성됨
+
+   ```
+   └─ dataset
+      ├─ Source
+      │  ├─ test
+      │  │  ├─ img 						
+      │  │  └─ label										
+      │  ├─ train
+      │  │  ├─ img
+      │  │  └─ label
+      │  └─ val
+      │     ├─ img
+      │     └─ label   
+      └─ Target
+         ├─ test
+         │  ├─ img 						
+         │  └─ label										
+         ├─ train
+         │  ├─ img
+         │  └─ label
+         └─ val
+            ├─ img
+            └─ label   
+   ```
+
+   
+
+3. Run train.py
+
+   DLOW를 생성하는 InterpolationGAN 학습
+
+   ~~~python
+   python3 train.py
+   ~~~
+
+   
+
+4. Run infer.py
+
+   3에서 학습한 InterpolationGAN을 활용해 데이터셋 생성
+
+   ~~~python
+   python3 infer.py
+   ~~~
+
+   
+
+5. Run test.py
+
+   

@@ -13,10 +13,11 @@ sys.path.append("..")
 
 class InterpolationGAN(nn.Module):
 
-    def __init__(self, conf, is_train=True):
+    def __init__(self, conf, device, is_train=True):
         super(InterpolationGAN, self).__init__()
         self.conf = conf
-        
+        self.device = device
+
         # Generator 생성 및 초기화
         self.G_S = Base.Stoch_Generator(conf['nlatent'], conf['T_nc'], conf['S_nc'], conf['ngf'], 
                                         conf['use_dropout'], conf['n_res_blocks'])                  # T를 S로 변환하는 Generator 
@@ -41,18 +42,18 @@ class InterpolationGAN(nn.Module):
             self.criterion_cycle = nn.L1Loss(reduction='mean')
 
             # Answer for discriminator
-            self.ans_real = Variable(torch.ones([self.conf['batch_size'], 1, 23, 23]), requires_grad=False).cuda()
-            self.ans_fake = Variable(torch.zeros([self.conf['batch_size'], 1, 23, 23]), requires_grad=False).cuda()
+            self.ans_real = Variable(torch.ones([self.conf['batch_size'], 1, 23, 23]), requires_grad=False).to(device)
+            self.ans_fake = Variable(torch.zeros([self.conf['batch_size'], 1, 23, 23]), requires_grad=False).to(device)
 
     def set_input(self, input):
         ''' 
             Iteration마다 DataLoader로부터 input을 받아서 unpack
             size : batch, channel, height, width
         '''
-        self.real_S = Variable(input['S_img']).cuda()
-        self.real_T = Variable(input['T_img']).cuda()
-        self.domainess = utils.get_domainess(self.conf['cur_iter'], self.conf['total_iter'], 1).cuda()
-        
+        self.real_S = Variable(input['S_img']).to(self.device)
+        self.real_T = Variable(input['T_img']).to(self.device)
+        self.domainess = utils.get_domainess(self.conf['cur_iter'], self.conf['total_iter'], 1).to(self.device)
+
     def set_requires_grad(self, model_list, requires_grad=False):
         """
             불필요한 연산을 줄이기 위해 사용
@@ -64,21 +65,19 @@ class InterpolationGAN(nn.Module):
                 for param in model.parameters():
                     param.requires_grad = requires_grad
 
-    def foward(self):
-        self.Z = torch.unsqueeze(torch.unsqueeze(self.G_D(self.domainess), 2), 3)              # domainess Z (1, 16, 1, 1)
-        self.fake_T = self.G_T(self.real_S, self.Z)                                            # S에서 T쪽으로 z만큼 이동
-        self.recons_S = self.G_S(self.fake_T, self.Z)                                          # fake_T에서 다시 S쪽으로 z만큼 이동 
-       
-        self.Z_1 = torch.unsqueeze(torch.unsqueeze(self.G_D(1-self.domainess), 2), 3)          # domainess 1 - Z (1, 16, 1, 1)
-        self.fake_S = self.G_S(self.real_T, self.Z_1)                                          # T에서 S쪽으로 1-z만큼 이동
-        self.recons_T = self.G_T(self.fake_S, self.Z_1)                                        # fake_S에서 다시 T쪽으로 1-z만큼 이동
-
-
+    def forward(self, input, domainess):
+        d = torch.tensor([[domainess]])
+        Z = torch.unsqueeze(torch.unsqueeze(self.G_D(d), 2), 3)                 # domainess Z (1, 16, 1, 1)
+        real_S = Variable(input['S_img']).to(self.device)
+        fake_T = self.G_T(real_S, Z)                                                    # S에서 T쪽으로 z만큼 이동
+        for i in range(self.conf['batch_size']):                                        # 이미지 저장
+            utils.saveImg(fake_T[i], self.conf['DLOW_dir'], str(domainess)+"_"+input['S_name'][i].split("/")[-1])                             
+            utils.saveImg(real_S[i], self.conf['DLOW_dir'], "Origin"+input['S_name'][i].split("/")[-1])
+    
     def train(self):
         # Make flow S to T
         self.optimizer_G.zero_grad()
         self.optimizer_D.zero_grad()
-        
         self.Z = torch.unsqueeze(torch.unsqueeze(self.G_D(self.domainess), 2), 3)              # domainess Z (1, 16, 1, 1)
         self.fake_T = self.G_T(self.real_S, self.Z)                                            # S에서 T쪽으로 z만큼 이동
         self.recons_S = self.G_S(self.fake_T, self.Z)                                          # fake_T에서 다시 S쪽으로 z만큼 이동 
@@ -101,7 +100,7 @@ class InterpolationGAN(nn.Module):
         self.loss_D_T_G_T = loss_T_real_T + loss_T_fake_T
         
         self.loss_D_S2T = (1 - self.domainess)*self.loss_D_S_G_T + self.domainess*self.loss_D_T_G_T
-        self.loss_D_S2T.backward
+        self.loss_D_S2T.backward()
         self.optimizer_D.step()
 
         torch.cuda.empty_cache()
@@ -161,7 +160,7 @@ class InterpolationGAN(nn.Module):
         torch.save(checkpoint, path)
 
     def load(self, path):
-        checkpoint = torch.load(path)
+        checkpoint = torch.load(path, map_location=self.device)
         self.G_D.load_state_dict(checkpoint['G_D'])
         self.G_S.load_state_dict(checkpoint['G_S'])
         self.G_T.load_state_dict(checkpoint['G_T'])

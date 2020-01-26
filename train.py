@@ -5,7 +5,7 @@ import time
 
 import torch
 
-from data import DataLoader
+from data import DLOWDataLoader
 from util.Logger import Logger
 from util.utils import*
 from model.CycleGAN import CycleGAN
@@ -21,21 +21,26 @@ if __name__ == "__main__":
     if not os.path.isdir(train_conf['checkpoint_dir']):
         os.mkdir(train_conf['checkpoint_dir'])
 
-    # GPU 할당
-    os.environ["CUDA_VISIBLE_DEVICES"] = train_conf['gpu_id']
+    # Device 할당
+    if torch.cuda.is_available():
+        os.environ["CUDA_VISIBLE_DEVICES"] = train_conf['gpu_id']
+        device = torch.device('cuda')
+    else:
+        os.environ["CUDA_VISIBLE_DEVICES"] = ""
+        device = torch.device('cpu')
+    print("Using ", device)
 
     # Model 선언
-    model = InterpolationGAN(train_conf)
+    model = InterpolationGAN(train_conf, device=device)
     print_network(model)
     model = torch.nn.DataParallel(model, output_device=1)
-    model.cuda()
+    model.to(device)
 
 
     # 데이터 로딩
     sys.stdout.write("Loading the data...")
-    dataloaders = DataLoader.get_dataloaders(['train', 'val'], train_conf)
+    dataloaders = DLOWDataLoader.get_DLOW_dataloaders(['train'], train_conf)
     train_dl = dataloaders['train']
-    val_dl = dataloaders['val']
     sys.stdout.write(" -done")
     sys.stdout.flush()
 

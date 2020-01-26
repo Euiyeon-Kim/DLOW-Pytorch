@@ -1,20 +1,18 @@
-train:
-  
+train:                                        # Data flow generation 학습을 위한 configuration
   # Basic settings
-  cuda: True
-  gpu_id: "0 1"                              # String 형태
+  gpu_id: "0 1"                               # String 형태
   start_epoch: 0
   num_epochs: 1000
-  num_workers: 0                             # 양수로 두면 multi-process data loading
+  num_workers: 0                              # 양수로 두면 multi-process data loading
   save_summary_steps: 10
-  cur_iter: 0                                # 현재까지 학습한 iteration --> domainess 설정과 tensorboard logging에 쓰임
-  total_iter: 0                              # 학습해야하는 total iteration --> domainess 설정에서 사용
+  cur_iter: 0                                 # 현재까지 학습한 iteration --> domainess 설정과 tensorboard logging에 쓰임
+  total_iter: 0                               # 학습해야하는 total iteration --> domainess 설정에서 사용
 
-  # Directorys
-  data_root_dir: "/mnt/hdd0/datasets/DLOW"
-  checkpoint_dir: "./model/checkpoint"
+  # Directorys              
+  data_root_dir: "./datasets"                 # Target, Source 폴더가 있는 directory   
+  checkpoint_dir: "./model/checkpoint"        # Chcekpoint를 저장할 directory
   restore_dir: False                          # Fill if restoring needed
-  output_dir: "/mnt/hdd0/outputs/DLOW"
+  output_dir: "./outputs"
 
   # Related to dataset
   S_nc: 3
@@ -25,8 +23,7 @@ train:
 
   # Hyperparameters
   lr: 0.00002
-  beta: 0.5             # Adam optimizer hyperparameter
-  n_res_blocks: 9
+  beta: 0.5                                   # Adam optimizer hyperparameter
   lambda_cycle: 10
   lambda_ident: 10
   batch_size: 2
@@ -37,12 +34,37 @@ train:
   nef: 32
   nlatent: 16
   use_dropout: False
+  n_res_blocks: 9
+
+infer:                                        # Data flow를 generation하기 위한 configuration
+  
+  gpu_id: "0 1"         
+  batch_size: 2
+  num_workers: 0                              # 양수로 두면 multi-process data loading
+  
+  # Directories
+  data_root_dir: "./datasets"                 # Target, Source 폴더가 있는 directory     
+  checkpoint_dir: "./model/checkpoint"
+  DLOW_dir: "./datasets/DLOW"
+  
+  # Related to dataset
+  S_nc: 3
+  T_nc: 3
+  S_H: 563                                    # Aspect ratio를 유지하면서 width가 1024가 되도록 하는 height
+  T_H: 512
+  fixed_pair: False
+
+  # Architectures
+  ngf: 64
+  ndf: 32
+  nef: 32
+  nlatent: 16
+  use_dropout: False
+  n_res_blocks: 9
 
 test:
 
-infer:
-  checkpoint_dir: "./model/checkpoint"
-  gpu_id: "0 1"                             
+               
 
 
 
