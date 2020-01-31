@@ -4,13 +4,14 @@ Reproduce [DLOW: Domain Flow for Adaptation and Generalization](https://pdfs.sem
 
 
 ## Code structure
-	├─ dataset
+	├─ AdaptSegNet					: 성능 체크
+	├─ dataset	
 	│  ├─ Source
 	│  │  ├─ img
 	│  │  └─ label
 	│  ├─ Source_list
-	│  │  └─ train.txt
-	│  │
+	│  │  ├─ Atrain.txt
+	│  │  └─ Btrain.txt
 	│  ├─ Target
 	│  │  ├─ train
 	│  │  │  ├─ img
@@ -29,8 +30,8 @@ Reproduce [DLOW: Domain Flow for Adaptation and Generalization](https://pdfs.sem
 	│
 	├─ data
 	│		DataLoader.py
-	│		preprocess_Cityscapes.py 	: Resizing
-	│		preprocess_GTA5.py 			: Split train, test, valid dataset and resizing
+	│		preprocess_Cityscapes.py        : Resizing
+	│		preprocess_GTA5.py 		: Split train, test, valid dataset and resizing
 	│
 	├─ model
 	│		checkpoint
@@ -39,12 +40,12 @@ Reproduce [DLOW: Domain Flow for Adaptation and Generalization](https://pdfs.sem
 	│		InterpolationGAN.py
 	│
 	├─ utils
-	│		Logger.py 					: Terminal + tensorboard Logging 
+	│		Logger.py 			: Terminal + tensorboard Logging 
 	│		utils.py
 	│
-	├─ train.py							: Train InterpolationGAN
+	├─ train.py					: Train InterpolationGAN
 	│
-	└─ infer.py 						: Make actual DLOW dataset using InterpolationGAN
+	└─ infer.py 					: Make actual DLOW dataset using InterpolationGAN
 	
 	
 	
