@@ -8,44 +8,46 @@ Reproduce [DLOW: Domain Flow for Adaptation and Generalization](https://pdfs.sem
 	│  ├─ Source
 	│  │  ├─ img
 	│  │  └─ label
-   │  ├─ Source_list
-   │  │  └─ train.txt
-   │  │
+	│  ├─ Source_list
+	│  │  └─ train.txt
+	│  │
 	│  ├─ Target
 	│  │  ├─ train
-   │	│  │  ├─ img
+	│	 │  │  ├─ img
 	│  │  │  └─ label
 	│  │  ├─ test
-   │	│  │  ├─ img
+	│	 │  │  ├─ img
 	│  │  │  └─ label
 	│  │  └─ val
-   │	│     ├─ img
+	│	 │     ├─ img
 	│  │     └─ label
-   │  └─ Target_list
-   │     ├─ info.json
-   │     ├─ label.txt
-   │     ├─ train.txt
-   │     └─ val.txt
-   │
+	│  └─ Target_list
+	│     ├─ info.json
+	│     ├─ label.txt
+	│     ├─ train.txt
+	│     └─ val.txt
+	│
 	├─ data
 	│		DataLoader.py
 	│		preprocess_Cityscapes.py 	: Resizing
 	│		preprocess_GTA5.py 			: Split train, test, valid dataset and resizing
-   │
+	│
 	├─ model
 	│		checkpoint
 	│		Modules.py
 	│		BaseNetwork.py
 	│		InterpolationGAN.py
-   │
+	│
 	├─ utils
 	│		Logger.py 					: Terminal + tensorboard Logging 
 	│		utils.py
-   │
+	│
 	├─ train.py							: Train InterpolationGAN
-   │
+	│
 	└─ infer.py 						: Make actual DLOW dataset using InterpolationGAN
-
+	
+	
+	
 
 
 ## How to execute
@@ -149,4 +151,3 @@ Reproduce [DLOW: Domain Flow for Adaptation and Generalization](https://pdfs.sem
    python3 ./AdaptSegNet/before.py     # 기존 데이터셋을 이용한 학습
    python3 ./AdaptSegNet/after.py      # 새로 생성한 데이터셋을 이용한 학습
    ~~~
-   
