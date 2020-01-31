@@ -13,13 +13,13 @@ Reproduce [DLOW: Domain Flow for Adaptation and Generalization](https://pdfs.sem
 	│  │
 	│  ├─ Target
 	│  │  ├─ train
-	│	 │  │  ├─ img
+	│  │  │  ├─ img
 	│  │  │  └─ label
 	│  │  ├─ test
-	│	 │  │  ├─ img
+	│  │  │  ├─ img
 	│  │  │  └─ label
 	│  │  └─ val
-	│	 │     ├─ img
+	│  │     ├─ img
 	│  │     └─ label
 	│  └─ Target_list
 	│     ├─ info.json
