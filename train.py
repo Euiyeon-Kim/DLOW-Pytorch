@@ -8,7 +8,6 @@ import torch
 from data import DLOWDataLoader
 from util.Logger import Logger
 from util.utils import*
-from model.CycleGAN import CycleGAN
 from model.InterpolationGAN import InterpolationGAN
 
 if __name__ == "__main__":

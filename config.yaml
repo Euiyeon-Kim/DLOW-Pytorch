@@ -17,7 +17,7 @@ train:                                        # Data flow generation 학습을 �
   # Related to dataset
   S_nc: 3
   T_nc: 3
-  S_H: 563                                    # Aspect ratio를 유지하면서 width가 1024가 되도록 하는 height
+  S_H: 563                                    # Aspect ratio를 유지하면서 width가 1024가 되도록 하는 height --> Dataloader에 사용
   T_H: 512
   fixed_pair: False
 
@@ -39,14 +39,15 @@ train:                                        # Data flow generation 학습을 �
 infer:                                        # Data flow를 generation하기 위한 configuration
   
   gpu_id: "0 1"         
-  batch_size: 2
+  batch_size: 1
   num_workers: 0                              # 양수로 두면 multi-process data loading
   
   # Directories
   data_root_dir: "./datasets"                 # Target, Source 폴더가 있는 directory     
+  infer_dir : "./datasets/GTA5"               # Inference할 데이터가 있는 directory
   checkpoint_dir: "./model/checkpoint"
   DLOW_dir: "./datasets/DLOW"
-  
+  DLOW_list_dir: "./datasets/Source_list"
   # Related to dataset
   S_nc: 3
   T_nc: 3

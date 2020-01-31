@@ -67,13 +67,11 @@ class InterpolationGAN(nn.Module):
 
     def forward(self, input, domainess):
         d = torch.tensor([[domainess]])
-        Z = torch.unsqueeze(torch.unsqueeze(self.G_D(d), 2), 3)                 # domainess Z (1, 16, 1, 1)
-        real_S = Variable(input['S_img']).to(self.device)
-        fake_T = self.G_T(real_S, Z)                                                    # S에서 T쪽으로 z만큼 이동
-        for i in range(self.conf['batch_size']):                                        # 이미지 저장
-            utils.saveImg(fake_T[i], self.conf['DLOW_dir'], str(domainess)+"_"+input['S_name'][i].split("/")[-1])                             
-            utils.saveImg(real_S[i], self.conf['DLOW_dir'], "Origin"+input['S_name'][i].split("/")[-1])
-    
+        Z = torch.unsqueeze(torch.unsqueeze(self.G_D(d), 2), 3)         # domainess Z (1, 16, 1, 1)
+        real_S = Variable(input).to(self.device)
+        fake_T = self.G_T(real_S, Z)                                    # S에서 T쪽으로 z만큼 이동
+        return utils.tensor2img(fake_T[0])
+
     def train(self):
         # Make flow S to T
         self.optimizer_G.zero_grad()
